@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GST Filing System - Enhanced Prototype v2</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        // Icons
+        const DashboardIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+        );
+
+        const UsersIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+        );
+
+        const UploadIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+        );
+
+        const FileIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        );
+
+        const BellIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+        );
+
+        const SettingsIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        );
+
+        const FolderIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+        );
+
+        const EmailIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+        );
+
+        const CheckIcon = () => (
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+        );
+
+        const AlertIcon = () => (
+            <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        );
+
+        const RefreshIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+        );
+
+        const LogoutIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+        );
+
+        const ExternalLinkIcon = () => (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+        );
+
+        // Mock Data
+        const users = {
+            admin: { id: 1, email: 'hriday@abc-ca.com', name: 'Hriday', role: 'admin', password: 'admin123' },
+            consultant: { id: 2, email: 'vidhi@abc-ca.com', name: 'Vidhi', role: 'consultant', password: 'consultant123' }
+        };
+
+        const clients = [
+            { id: 1, gstin: '27AABCU9603R1ZM', name: 'Tech Solutions Pvt Ltd', assignedTo: 'Vidhi', status: 'filed', contactEmail: 'finance@techsolutions.com', whatsapp: '+919876543210', pocName: 'Rajesh Kumar', active: true },
+            { id: 2, gstin: '29AAJCS4999N1ZN', name: 'Retail Enterprises', assignedTo: 'Vidhi', status: 'error', contactEmail: 'accounts@retail.com', whatsapp: '+919876543211', pocName: 'Priya Sharma', active: true },
+            { id: 3, gstin: '27AABCT1332L1Z6', name: 'Manufacturing Co', assignedTo: 'Hetal', status: 'filed', contactEmail: 'gst@manufacturing.com', whatsapp: '+919876543212', pocName: 'Amit Patel', active: true },
+            { id: 4, gstin: '24AACCS7078J1ZD', name: 'Trading Company', assignedTo: 'Vidhi', status: 'data_pending', contactEmail: 'info@trading.com', whatsapp: '+919876543213', pocName: 'Sunita Verma', active: true },
+            { id: 5, gstin: '09AADCP5123M1ZV', name: 'Services Ltd', assignedTo: 'Shivani', status: 'json_ready', contactEmail: 'tax@services.com', whatsapp: '+919876543214', pocName: 'Vikram Singh', active: false },
+        ];
+
+        const clientMonthStatus = {
+            1: { dataReceived: true, dataProcessed: true, hasErrors: false, jsonGenerated: true, gstr1Filed: true, gstr3bFiled: true },
+            2: { dataReceived: true, dataProcessed: true, hasErrors: true, jsonGenerated: false, gstr1Filed: false, gstr3bFiled: false },
+            3: { dataReceived: true, dataProcessed: true, hasErrors: false, jsonGenerated: true, gstr1Filed: true, gstr3bFiled: true },
+            4: { dataReceived: false, dataProcessed: false, hasErrors: false, jsonGenerated: false, gstr1Filed: false, gstr3bFiled: false },
+            5: { dataReceived: true, dataProcessed: true, hasErrors: false, jsonGenerated: true, gstr1Filed: false, gstr3bFiled: false },
+        };
+
+        // Login Component
+        function LoginPage({ onLogin }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (email === users.admin.email && password === users.admin.password) {
+                    onLogin(users.admin);
+                } else if (email === users.consultant.email && password === users.consultant.password) {
+                    onLogin(users.consultant);
+                } else {
+                    setError('Invalid credentials');
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+                    <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-800 mb-2">GST Filing System</h1>
+                            <p className="text-gray-600">ABC CA & Associates</p>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    placeholder="your@email.com"
+                                    required
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </div>
+                            
+                            {error && (
+                                <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm">
+                                    {error}
+                                </div>
+                            )}
+                            
+                            <button
+                                type="submit"
+                                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            >
+                                Sign In
+                            </button>
+                        </form>
+
+                        <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm">
+                            <p className="font-semibold mb-2">Demo Credentials:</p>
+                            <p className="text-gray-700 mb-1"><strong>Admin:</strong> hriday@abc-ca.com / admin123</p>
+                            <p className="text-gray-700"><strong>Consultant:</strong> vidhi@abc-ca.com / consultant123</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Sidebar Component
+        function Sidebar({ activeTab, setActiveTab, user, onLogout }) {
+            const tabs = user.role === 'admin' 
+                ? [
+                    { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
+                    { id: 'clients', label: 'Clients', Icon: UsersIcon },
+                    { id: 'filing', label: 'Filing Status', Icon: FileIcon },
+                    { id: 'email-automation', label: 'Email Automation', Icon: EmailIcon },
+                    { id: 'reminders', label: 'Reminder Rules', Icon: BellIcon },
+                    { id: 'documents', label: 'Documents', Icon: FolderIcon },
+                    { id: 'settings', label: 'Settings', Icon: SettingsIcon },
+                  ]
+                : [
+                    { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
+                    { id: 'clients', label: 'My Clients', Icon: UsersIcon },
+                    { id: 'filing', label: 'Filing Status', Icon: FileIcon },
+                    { id: 'documents', label: 'Documents', Icon: FolderIcon },
+                  ];
+
+            return (
+                <div className="w-64 bg-gray-900 text-white h-screen fixed left-0 top-0 flex flex-col overflow-y-auto">
+                    <div className="p-6">
+                        <h2 className="text-xl font-bold">GST Filing</h2>
+                        <p className="text-sm text-gray-400 mt-1">ABC CA & Associates</p>
+                    </div>
+
+                    <nav className="flex-1 px-3">
+                        {tabs.map(tab => {
+                            const Icon = tab.Icon;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors text-sm ${
+                                        activeTab === tab.id ? 'bg-blue-600' : 'hover:bg-gray-800'
+                                    }`}
+                                >
+                                    <Icon />
+                                    <span>{tab.label}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <div className="p-4 border-t border-gray-800">
+                        <div className="flex items-center space-x-3 mb-3">
+                            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-sm font-semibold">{user.name[0]}</span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate">{user.name}</p>
+                                <p className="text-xs text-gray-400 capitalize">{user.role}</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onLogout}
+                            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-sm"
+                        >
+                            <LogoutIcon />
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Dashboard Component
+        function Dashboard({ user, selectedMonth, setSelectedMonth }) {
+            const stats = user.role === 'admin' 
+                ? [
+                    { label: 'Total Clients', value: '130', change: '+5', color: 'blue' },
+                    { label: 'Data Received', value: '107/130', change: '82%', color: 'green' },
+                    { label: 'With Errors', value: '12', change: '-3', color: 'red' },
+                    { label: 'JSON Generated', value: '95', change: '+15', color: 'purple' },
+                    { label: 'GSTR-1 Filed', value: '89/107', change: '83%', color: 'blue' },
+                    { label: 'GSTR-3B Filed', value: '85/107', change: '79%', color: 'indigo' },
+                  ]
+                : [
+                    { label: 'My Clients', value: '22', change: '0', color: 'blue' },
+                    { label: 'Data Received', value: '18/22', change: '82%', color: 'green' },
+                    { label: 'JSON Generated', value: '16', change: '+4', color: 'purple' },
+                    { label: 'GSTR-1 Filed', value: '14/18', change: '78%', color: 'blue' },
+                  ];
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+                            Welcome back, {user.name}!
+                        </h1>
+                        <div className="flex items-center space-x-3">
+                            <input
+                                type="month"
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                            />
+                            <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium">
+                                Compare
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                        {stats.map((stat, idx) => (
+                            <div key={idx} className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+                                <p className="text-xs sm:text-sm text-gray-600 mb-1">{stat.label}</p>
+                                <p className="text-xl sm:text-3xl font-bold mb-1" style={{color: stat.color === 'blue' ? '#2563eb' : stat.color === 'green' ? '#16a34a' : stat.color === 'red' ? '#dc2626' : stat.color === 'purple' ? '#9333ea' : '#4f46e5'}}>
+                                    {stat.value}
+                                </p>
+                                <p className={`text-xs ${stat.change.startsWith('+') ? 'text-green-600' : stat.change.startsWith('-') ? 'text-red-600' : 'text-gray-500'}`}>
+                                    {stat.change} from last month
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-xl shadow-sm">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold">Action Required</h3>
+                                <span className="text-xs text-gray-500">Updated 2 mins ago</span>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-2 mb-1">
+                                            <AlertIcon />
+                                            <p className="text-sm font-semibold text-red-800">12 Clients with Data Errors</p>
+                                        </div>
+                                        <p className="text-xs text-red-600">Need immediate attention</p>
+                                    </div>
+                                    <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium whitespace-nowrap ml-3">
+                                        Review Now
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-2 mb-1">
+                                            <AlertIcon />
+                                            <p className="text-sm font-semibold text-yellow-800">18 Clients - Data Pending</p>
+                                        </div>
+                                        <p className="text-xs text-yellow-600">Send reminder</p>
+                                    </div>
+                                    <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium whitespace-nowrap ml-3">
+                                        Send Reminder
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-2 mb-1">
+                                            <FileIcon />
+                                            <p className="text-sm font-semibold text-blue-800">16 JSON Files Ready</p>
+                                        </div>
+                                        <p className="text-xs text-blue-600">Ready for portal upload</p>
+                                    </div>
+                                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap ml-3">
+                                        Download All
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm">
+                            <h3 className="text-lg font-semibold mb-4">Upcoming Deadlines</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center p-4 border-l-4 border-red-500 bg-red-50 rounded">
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="font-semibold text-sm text-red-800">GSTR-1 Filing</p>
+                                            <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded">2 DAYS LEFT</span>
+                                        </div>
+                                        <p className="text-xs text-gray-600">February 11, 2026</p>
+                                        <div className="mt-2 bg-red-200 rounded-full h-2">
+                                            <div className="bg-red-600 h-2 rounded-full" style={{width: '83%'}}></div>
+                                        </div>
+                                        <p className="text-xs text-gray-600 mt-1">89/107 filed (83%)</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center p-4 border-l-4 border-yellow-500 bg-yellow-50 rounded">
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="font-semibold text-sm text-yellow-800">GSTR-3B Filing</p>
+                                            <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-2 py-1 rounded">11 DAYS LEFT</span>
+                                        </div>
+                                        <p className="text-xs text-gray-600">February 20, 2026</p>
+                                        <div className="mt-2 bg-yellow-200 rounded-full h-2">
+                                            <div className="bg-yellow-600 h-2 rounded-full" style={{width: '79%'}}></div>
+                                        </div>
+                                        <p className="text-xs text-gray-600 mt-1">85/107 filed (79%)</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center p-4 border-l-4 border-blue-500 bg-blue-50 rounded">
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="font-semibold text-sm text-blue-800">March Data Collection</p>
+                                            <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded">24 DAYS</span>
+                                        </div>
+                                        <p className="text-xs text-gray-600">Starts March 5, 2026</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Clients Component with Google Sheets Sync
+        function ClientsPage({ user }) {
+            const [selectedClients, setSelectedClients] = useState([]);
+            const [showBulkActions, setShowBulkActions] = useState(false);
+            const [filterStatus, setFilterStatus] = useState('all');
+            const [filterAssignedTo, setFilterAssignedTo] = useState('all');
+            const [filterActive, setFilterActive] = useState('all');
+            const [searchTerm, setSearchTerm] = useState('');
+
+            const filteredClients = clients
+                .filter(c => user.role === 'admin' || c.assignedTo === user.name)
+                .filter(c => filterStatus === 'all' || c.status === filterStatus)
+                .filter(c => filterAssignedTo === 'all' || c.assignedTo === filterAssignedTo)
+                .filter(c => filterActive === 'all' || (filterActive === 'active' ? c.active : !c.active))
+                .filter(c => 
+                    searchTerm === '' || 
+                    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    c.gstin.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    c.pocName.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+
+            const handleSelectAll = () => {
+                if (selectedClients.length === filteredClients.length) {
+                    setSelectedClients([]);
+                } else {
+                    setSelectedClients(filteredClients.map(c => c.id));
+                }
+            };
+
+            const getStatusBadge = (status) => {
+                const config = {
+                    filed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Filed' },
+                    error: { bg: 'bg-red-100', text: 'text-red-700', label: 'Has Errors' },
+                    data_pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Data Pending' },
+                    json_ready: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'JSON Ready' },
+                };
+                const badge = config[status] || config.data_pending;
+                return (
+                    <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${badge.bg} ${badge.text}`}>
+                        {badge.label}
+                    </span>
+                );
+            };
+
+            return (
+                <div className="space-y-4 sm:space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+                            {user.role === 'admin' ? 'All Clients' : 'My Clients'}
+                        </h1>
+                        {user.role === 'admin' && (
+                            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                                <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex-1 sm:flex-none justify-center">
+                                    <RefreshIcon />
+                                    <span>Sync Google Sheet</span>
+                                </button>
+                                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex-1 sm:flex-none">
+                                    + Add Client
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                            <input
+                                type="text"
+                                placeholder="Search clients..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                            />
+                            <select
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                            >
+                                <option value="all">All Status</option>
+                                <option value="filed">Filed</option>
+                                <option value="error">Has Errors</option>
+                                <option value="data_pending">Data Pending</option>
+                                <option value="json_ready">JSON Ready</option>
+                            </select>
+                            <select
+                                value={filterAssignedTo}
+                                onChange={(e) => setFilterAssignedTo(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                            >
+                                <option value="all">All Consultants</option>
+                                <option value="Vidhi">Vidhi</option>
+                                <option value="Hetal">Hetal</option>
+                                <option value="Shivani">Shivani</option>
+                                <option value="Jigar">Jigar</option>
+                                <option value="Raj">Raj</option>
+                            </select>
+                            <select
+                                value={filterActive}
+                                onChange={(e) => setFilterActive(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                            >
+                                <option value="all">All Clients</option>
+                                <option value="active">Active Only</option>
+                                <option value="inactive">Inactive Only</option>
+                            </select>
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setFilterStatus('all');
+                                    setFilterAssignedTo('all');
+                                    setFilterActive('all');
+                                }}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                            >
+                                Clear Filters
+                            </button>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500">
+                            Showing {filteredClients.length} of {clients.filter(c => user.role === 'admin' || c.assignedTo === user.name).length} clients
+                        </div>
+                    </div>
+
+                    {selectedClients.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <p className="text-sm font-medium text-blue-800">
+                                {selectedClients.length} client(s) selected
+                            </p>
+                            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                                <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs sm:text-sm flex-1 sm:flex-none">
+                                    Bulk Assign
+                                </button>
+                                <button className="px-3 py-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-xs sm:text-sm flex-1 sm:flex-none">
+                                    Send Reminder
+                                </button>
+                                <button className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs sm:text-sm flex-1 sm:flex-none">
+                                    Deactivate
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedClients([])}
+                                    className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-xs sm:text-sm flex-1 sm:flex-none"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b">
+                                    <tr>
+                                        <th className="px-3 sm:px-6 py-3 text-left">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedClients.length === filteredClients.length}
+                                                onChange={handleSelectAll}
+                                                className="rounded"
+                                            />
+                                        </th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">GSTIN</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Contact</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Assigned</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {filteredClients.map(client => (
+                                        <tr key={client.id} className={`hover:bg-gray-50 ${!client.active ? 'opacity-50' : ''}`}>
+                                            <td className="px-3 sm:px-6 py-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedClients.includes(client.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedClients([...selectedClients, client.id]);
+                                                        } else {
+                                                            setSelectedClients(selectedClients.filter(id => id !== client.id));
+                                                        }
+                                                    }}
+                                                    className="rounded"
+                                                />
+                                            </td>
+                                            <td className="px-3 sm:px-6 py-4">
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">{client.name}</div>
+                                                    <div className="text-xs text-gray-500 lg:hidden">{client.gstin}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 sm:px-6 py-4 hidden lg:table-cell">
+                                                <div className="text-sm text-gray-600 font-mono">{client.gstin}</div>
+                                            </td>
+                                            <td className="px-3 sm:px-6 py-4 hidden md:table-cell">
+                                                <div className="text-xs">
+                                                    <div className="font-medium text-gray-900">{client.pocName}</div>
+                                                    <div className="text-gray-500">{client.contactEmail}</div>
+                                                    <div className="text-gray-500">{client.whatsapp}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 sm:px-6 py-4 hidden sm:table-cell">
+                                                <div className="text-sm text-gray-600">{client.assignedTo}</div>
+                                            </td>
+                                            <td className="px-3 sm:px-6 py-4">
+                                                {getStatusBadge(client.status)}
+                                            </td>
+                                            <td className="px-3 sm:px-6 py-4 text-sm">
+                                                <button className="text-blue-600 hover:text-blue-800 font-medium">View</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Unified Client-Month Status View
+        function FilingStatusPage({ selectedMonth }) {
+            return (
+                <div className="space-y-4 sm:space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Filing Status - {selectedMonth}</h1>
+                        <input
+                            type="month"
+                            value={selectedMonth}
+                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm w-full sm:w-auto"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-green-50 border-2 border-green-200 p-4 sm:p-6 rounded-xl">
+                            <p className="text-xs sm:text-sm text-gray-600 mb-1">Fully Filed</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-green-600">89</p>
+                        </div>
+                        <div className="bg-yellow-50 border-2 border-yellow-200 p-4 sm:p-6 rounded-xl">
+                            <p className="text-xs sm:text-sm text-gray-600 mb-1">Partial</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-yellow-600">18</p>
+                        </div>
+                        <div className="bg-red-50 border-2 border-red-200 p-4 sm:p-6 rounded-xl">
+                            <p className="text-xs sm:text-sm text-gray-600 mb-1">With Errors</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-red-600">12</p>
+                        </div>
+                        <div className="bg-blue-50 border-2 border-blue-200 p-4 sm:p-6 rounded-xl">
+                            <p className="text-xs sm:text-sm text-gray-600 mb-1">Pending</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-blue-600">11</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs sm:text-sm">
+                                <thead className="bg-gray-50 border-b">
+                                    <tr>
+                                        <th className="px-3 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase">Client</th>
+                                        <th className="px-3 sm:px-6 py-3 text-center font-medium text-gray-500 uppercase">Data Recv</th>
+                                        <th className="px-3 sm:px-6 py-3 text-center font-medium text-gray-500 uppercase">Processed</th>
+                                        <th className="px-3 sm:px-6 py-3 text-center font-medium text-gray-500 uppercase">Errors</th>
+                                        <th className="px-3 sm:px-6 py-3 text-center font-medium text-gray-500 uppercase">JSON</th>
+                                        <th className="px-3 sm:px-6 py-3 text-center font-medium text-gray-500 uppercase">GSTR-1</th>
+                                        <th className="px-3 sm:px-6 py-3 text-center font-medium text-gray-500 uppercase">GSTR-3B</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {clients.map(client => {
+                                        const status = clientMonthStatus[client.id];
+                                        return (
+                                            <tr key={client.id} className="hover:bg-gray-50">
+                                                <td className="px-3 sm:px-6 py-4">
+                                                    <div className="font-medium text-gray-900">{client.name}</div>
+                                                    <div className="text-xs text-gray-500">{client.gstin}</div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 text-center">
+                                                    {status.dataReceived ? (
+                                                        <span className="inline-block w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">✓</span>
+                                                    ) : (
+                                                        <span className="inline-block w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 text-center">
+                                                    {status.dataProcessed ? (
+                                                        <span className="inline-block w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">✓</span>
+                                                    ) : (
+                                                        <span className="inline-block w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 text-center">
+                                                    {status.hasErrors ? (
+                                                        <button className="text-red-600 hover:text-red-800 font-medium underline">View</button>
+                                                    ) : (
+                                                        <span className="text-gray-400">None</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 text-center">
+                                                    {status.jsonGenerated ? (
+                                                        <button className="text-blue-600 hover:text-blue-800 font-medium underline">Download</button>
+                                                    ) : (
+                                                        <span className="inline-block w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 text-center">
+                                                    {status.gstr1Filed ? (
+                                                        <span className="inline-block w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">✓</span>
+                                                    ) : (
+                                                        <span className="inline-block w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 text-center">
+                                                    {status.gstr3bFiled ? (
+                                                        <span className="inline-block w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">✓</span>
+                                                    ) : (
+                                                        <span className="inline-block w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">-</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Email Automation Component
+        function EmailAutomationPage() {
+            return (
+                <div className="space-y-4 sm:space-y-6">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Email Automation</h1>
+
+                    <div className="bg-blue-50 border border-blue-200 p-4 sm:p-6 rounded-lg">
+                        <h3 className="font-semibold text-blue-900 mb-2">How it works:</h3>
+                        <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                            <li>Clients send invoice data to: <strong>gst-data@abc-ca.com</strong></li>
+                            <li>System auto-reads email attachments (Excel/Tally files)</li>
+                            <li>Data is validated automatically</li>
+                            <li>If errors found → Auto-send error report to client</li>
+                            <li>If successful → JSON generated automatically</li>
+                            <li>Consultant notified when JSON ready</li>
+                        </ol>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold">Emails Received</h3>
+                                <span className="text-2xl font-bold text-blue-600">47</span>
+                            </div>
+                            <p className="text-sm text-gray-600">This month</p>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold">Auto-Processed</h3>
+                                <span className="text-2xl font-bold text-green-600">42</span>
+                            </div>
+                            <p className="text-sm text-gray-600">89% success rate</p>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold">Errors Sent Back</h3>
+                                <span className="text-2xl font-bold text-red-600">5</span>
+                            </div>
+                            <p className="text-sm text-gray-600">Awaiting correction</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-semibold mb-4">Recent Email Activity</h3>
+                        <div className="space-y-3">
+                            <div className="flex items-start space-x-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <CheckIcon />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Data processed successfully</p>
+                                    <p className="text-xs text-gray-600">Tech Solutions Pvt Ltd - 2 mins ago</p>
+                                    <p className="text-xs text-gray-500 mt-1">42 invoices validated, JSON generated</p>
+                                </div>
+                                <button className="text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">View JSON</button>
+                            </div>
+
+                            <div className="flex items-start space-x-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <AlertIcon />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Errors found - Email sent to client</p>
+                                    <p className="text-xs text-gray-600">Retail Enterprises - 15 mins ago</p>
+                                    <p className="text-xs text-gray-500 mt-1">3 errors detected, report sent to accounts@retail.com</p>
+                                </div>
+                                <button className="text-sm text-red-600 hover:text-red-800 font-medium whitespace-nowrap">View Errors</button>
+                            </div>
+
+                            <div className="flex items-start space-x-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <EmailIcon />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Email received - Processing...</p>
+                                    <p className="text-xs text-gray-600">Manufacturing Co - 1 hour ago</p>
+                                    <p className="text-xs text-gray-500 mt-1">Excel file being validated</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-semibold mb-4">Email Templates</h3>
+                        <div className="space-y-3">
+                            <div className="p-4 border border-gray-200 rounded-lg">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 className="font-medium">Success Notification</h4>
+                                        <p className="text-xs text-gray-500">Sent to client when data is processed successfully</p>
+                                    </div>
+                                    <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+                                </div>
+                                <div className="mt-3 p-3 bg-gray-50 rounded text-xs text-gray-700">
+                                    <strong>Subject:</strong> GST Data Processed Successfully - [Month]<br/>
+                                    <strong>Body:</strong> Dear [POC Name], Your invoice data has been successfully processed...
+                                </div>
+                            </div>
+
+                            <div className="p-4 border border-gray-200 rounded-lg">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 className="font-medium">Error Report</h4>
+                                        <p className="text-xs text-gray-500">Sent to client when validation errors are found</p>
+                                    </div>
+                                    <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+                                </div>
+                                <div className="mt-3 p-3 bg-gray-50 rounded text-xs text-gray-700">
+                                    <strong>Subject:</strong> Action Required: GST Data Errors - [Month]<br/>
+                                    <strong>Body:</strong> Dear [POC Name], We found some errors in your submitted data...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Automated Reminder Rules Component
+        function RemindersPage() {
+            return (
+                <div className="space-y-4 sm:space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Automated Reminder Rules</h1>
+                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm w-full sm:w-auto">
+                            + Create New Rule
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-green-200">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-semibold text-lg">Monthly Data Collection Reminder</h3>
+                                    <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Active</span>
+                                </div>
+                                <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+                            </div>
+                            
+                            <div className="space-y-3 text-sm">
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Trigger:</strong>
+                                    <span className="text-gray-700">1st day of every month</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Send To:</strong>
+                                    <span className="text-gray-700">All active monthly clients</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Channels:</strong>
+                                    <span className="text-gray-700">Email + WhatsApp</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Message:</strong>
+                                    <div className="p-3 bg-gray-50 rounded flex-1">
+                                        Dear [POC Name],<br/>
+                                        Please submit your sales invoice data for [Last Month] GST filing by [5th of Current Month].<br/>
+                                        Send to: gst-data@abc-ca.com<br/>
+                                        <br/>
+                                        Regards,<br/>
+                                        ABC CA & Associates
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t">
+                                <p className="text-xs text-gray-500">Last sent: Feb 1, 2026 to 130 clients</p>
+                                <p className="text-xs text-gray-500">Next scheduled: Mar 1, 2026</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-yellow-200">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-semibold text-lg">Follow-up for Pending Data</h3>
+                                    <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Active</span>
+                                </div>
+                                <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+                            </div>
+                            
+                            <div className="space-y-3 text-sm">
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Trigger:</strong>
+                                    <span className="text-gray-700">6th of every month</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Send To:</strong>
+                                    <span className="text-gray-700">Clients who haven't submitted data</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Channels:</strong>
+                                    <span className="text-gray-700">Email + WhatsApp</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Message:</strong>
+                                    <div className="p-3 bg-gray-50 rounded flex-1">
+                                        Dear [POC Name],<br/>
+                                        <strong>Reminder:</strong> We haven't received your GST data for [Last Month] yet.<br/>
+                                        Please submit urgently to avoid delays in filing.<br/>
+                                        <br/>
+                                        Regards,<br/>
+                                        ABC CA & Associates
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t">
+                                <p className="text-xs text-gray-500">Last sent: Feb 6, 2026 to 18 clients</p>
+                                <p className="text-xs text-gray-500">Next scheduled: Mar 6, 2026</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-red-200">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-semibold text-lg">Error Correction Reminder</h3>
+                                    <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Active</span>
+                                </div>
+                                <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+                            </div>
+                            
+                            <div className="space-y-3 text-sm">
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Trigger:</strong>
+                                    <span className="text-gray-700">24 hours after error report sent</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Send To:</strong>
+                                    <span className="text-gray-700">Clients with unresolved errors</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Channels:</strong>
+                                    <span className="text-gray-700">WhatsApp only</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Message:</strong>
+                                    <div className="p-3 bg-gray-50 rounded flex-1">
+                                        Hi [POC Name],<br/>
+                                        Quick reminder to fix the errors in your GST data. We sent you the error report yesterday.<br/>
+                                        Need help? Call us at [Contact]
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t">
+                                <p className="text-xs text-gray-500">Auto-triggered based on error detection</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-blue-200">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-semibold text-lg">Filing Deadline Alert</h3>
+                                    <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Active</span>
+                                </div>
+                                <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+                            </div>
+                            
+                            <div className="space-y-3 text-sm">
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Trigger:</strong>
+                                    <span className="text-gray-700">9th of every month (2 days before deadline)</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Send To:</strong>
+                                    <span className="text-gray-700">Clients with pending filing</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Channels:</strong>
+                                    <span className="text-gray-700">Email + WhatsApp + SMS</span>
+                                </div>
+                                <div className="flex items-start space-x-2">
+                                    <strong className="w-24 flex-shrink-0">Message:</strong>
+                                    <div className="p-3 bg-gray-50 rounded flex-1">
+                                        <strong>URGENT:</strong> GST filing deadline in 2 days!<br/>
+                                        Please submit data immediately to avoid penalties.<br/>
+                                        Contact: [Your Contact]
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t">
+                                <p className="text-xs text-gray-500">Next scheduled: Mar 9, 2026</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 p-4 sm:p-6 rounded-lg">
+                        <h3 className="font-semibold text-blue-900 mb-3">Reminder Statistics (This Month)</h3>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-blue-600">847</p>
+                                <p className="text-xs text-gray-600">Total Sent</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-green-600">623</p>
+                                <p className="text-xs text-gray-600">Email Delivered</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-purple-600">589</p>
+                                <p className="text-xs text-gray-600">WhatsApp Delivered</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-indigo-600">107</p>
+                                <p className="text-xs text-gray-600">SMS Sent</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Documents Archive Component
+        function DocumentsPage({ selectedMonth }) {
+            const [filterYear, setFilterYear] = useState('2025-26');
+            const [filterClient, setFilterClient] = useState('all');
+            const [filterDocType, setFilterDocType] = useState('all');
+            const [searchTerm, setSearchTerm] = useState('');
+
+            // Mock documents data
+            const documents = [
+                { id: 1, client: 'Tech Solutions Pvt Ltd', type: 'GSTR-1 JSON', period: 'Jan 2026', date: 'Feb 8, 2026', year: '2025-26' },
+                { id: 2, client: 'Tech Solutions Pvt Ltd', type: 'Acknowledgment PDF', period: 'Jan 2026', date: 'Feb 8, 2026', year: '2025-26' },
+                { id: 3, client: 'Retail Enterprises', type: 'Invoice Data Excel', period: 'Jan 2026', date: 'Feb 7, 2026', year: '2025-26' },
+                { id: 4, client: 'Manufacturing Co', type: 'Error Report', period: 'Jan 2026', date: 'Feb 6, 2026', year: '2025-26' },
+                { id: 5, client: 'Trading Company', type: 'GSTR-3B JSON', period: 'Jan 2026', date: 'Feb 5, 2026', year: '2025-26' },
+                { id: 6, client: 'Services Ltd', type: 'Acknowledgment PDF', period: 'Dec 2025', date: 'Jan 10, 2026', year: '2025-26' },
+            ];
+
+            const filteredDocuments = documents
+                .filter(d => filterYear === 'all' || d.year === filterYear)
+                .filter(d => filterClient === 'all' || d.client === filterClient)
+                .filter(d => filterDocType === 'all' || d.type === filterDocType)
+                .filter(d => 
+                    searchTerm === '' || 
+                    d.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    d.type.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+
+            const getDocTypeBadge = (type) => {
+                const config = {
+                    'GSTR-1 JSON': { bg: 'bg-blue-100', text: 'text-blue-700' },
+                    'GSTR-3B JSON': { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+                    'Acknowledgment PDF': { bg: 'bg-green-100', text: 'text-green-700' },
+                    'Invoice Data Excel': { bg: 'bg-purple-100', text: 'text-purple-700' },
+                    'Error Report': { bg: 'bg-red-100', text: 'text-red-700' },
+                };
+                const badge = config[type] || { bg: 'bg-gray-100', text: 'text-gray-700' };
+                return (
+                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${badge.bg} ${badge.text}`}>
+                        {type}
+                    </span>
+                );
+            };
+
+            return (
+                <div className="space-y-4 sm:space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Document Archive</h1>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                            <input
+                                type="text"
+                                placeholder="Search documents..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                            />
+                            <select 
+                                value={filterYear}
+                                onChange={(e) => setFilterYear(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                                <option value="all">All Years</option>
+                                <option value="2025-26">2025-26</option>
+                                <option value="2024-25">2024-25</option>
+                                <option value="2023-24">2023-24</option>
+                                <option value="2022-23">2022-23</option>
+                            </select>
+                            <select 
+                                value={filterClient}
+                                onChange={(e) => setFilterClient(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                                <option value="all">All Clients</option>
+                                <option value="Tech Solutions Pvt Ltd">Tech Solutions</option>
+                                <option value="Retail Enterprises">Retail Enterprises</option>
+                                <option value="Manufacturing Co">Manufacturing Co</option>
+                                <option value="Trading Company">Trading Company</option>
+                                <option value="Services Ltd">Services Ltd</option>
+                            </select>
+                            <select 
+                                value={filterDocType}
+                                onChange={(e) => setFilterDocType(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                                <option value="all">All Document Types</option>
+                                <option value="GSTR-1 JSON">GSTR-1 JSON</option>
+                                <option value="GSTR-3B JSON">GSTR-3B JSON</option>
+                                <option value="Acknowledgment PDF">Acknowledgment PDF</option>
+                                <option value="Invoice Data Excel">Invoice Data Excel</option>
+                                <option value="Error Report">Error Report</option>
+                            </select>
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setFilterYear('2025-26');
+                                    setFilterClient('all');
+                                    setFilterDocType('all');
+                                }}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                            >
+                                Clear Filters
+                            </button>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500">
+                            Showing {filteredDocuments.length} documents
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-semibold mb-4">Storage Overview</h3>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="text-center p-4 bg-blue-50 rounded-lg">
+                                <p className="text-2xl font-bold text-blue-600">1,847</p>
+                                <p className="text-xs text-gray-600">Total Documents</p>
+                            </div>
+                            <div className="text-center p-4 bg-green-50 rounded-lg">
+                                <p className="text-2xl font-bold text-green-600">12.4 GB</p>
+                                <p className="text-xs text-gray-600">Storage Used</p>
+                            </div>
+                            <div className="text-center p-4 bg-purple-50 rounded-lg">
+                                <p className="text-2xl font-bold text-purple-600">7 Years</p>
+                                <p className="text-xs text-gray-600">Retention Period</p>
+                            </div>
+                            <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                                <p className="text-2xl font-bold text-yellow-600">156</p>
+                                <p className="text-xs text-gray-600">This Month</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-4 sm:p-6 border-b">
+                            <h3 className="font-semibold">Recent Documents</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b">
+                                    <tr>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Document Type</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Period</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Uploaded</th>
+                                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {filteredDocuments.map(doc => (
+                                        <tr key={doc.id} className="hover:bg-gray-50">
+                                            <td className="px-3 sm:px-6 py-4 text-sm">{doc.client}</td>
+                                            <td className="px-3 sm:px-6 py-4">
+                                                {getDocTypeBadge(doc.type)}
+                                            </td>
+                                            <td className="px-3 sm:px-6 py-4 text-sm hidden sm:table-cell">{doc.period}</td>
+                                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-500 hidden md:table-cell">{doc.date}</td>
+                                            <td className="px-3 sm:px-6 py-4">
+                                                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Download</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {filteredDocuments.length === 0 && (
+                                        <tr>
+                                            <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                                                No documents found matching your filters
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 p-4 sm:p-6 rounded-lg">
+                        <div className="flex items-start space-x-3">
+                            <AlertIcon />
+                            <div>
+                                <h3 className="font-semibold text-yellow-900 mb-2">Data Retention Policy</h3>
+                                <ul className="text-sm text-yellow-800 space-y-1">
+                                    <li>• All documents retained for 7 years as per GST compliance</li>
+                                    <li>• Documents older than 3 years moved to archive storage</li>
+                                    <li>• Auto-deletion after 7 years with 30-day notice</li>
+                                    <li>• Export functionality available before deletion</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Settings Component
+        function SettingsPage() {
+            return (
+                <div className="space-y-4 sm:space-y-6">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Settings</h1>
+
+                    <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-semibold mb-4">Google Sheets Integration</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Sheet URL</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="https://docs.google.com/spreadsheets/d/..."
+                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                                    />
+                                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap">
+                                        Connect
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <input type="checkbox" id="auto-sync" className="rounded" />
+                                <label htmlFor="auto-sync" className="text-sm text-gray-700">Auto-sync daily at 9:00 AM</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-semibold mb-4">Email Configuration</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Incoming Email</label>
+                                <input
+                                    type="email"
+                                    value="gst-data@abc-ca.com"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                                    readOnly
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Clients send data to this email</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Sender Email</label>
+                                <input
+                                    type="email"
+                                    value="noreply@abc-ca.com"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-semibold mb-4">WhatsApp Configuration</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Service Provider</label>
+                                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                                    <option>Gupshup</option>
+                                    <option>Interakt</option>
+                                    <option>Twilio</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                                <input
+                                    type="password"
+                                    placeholder="Enter API key"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App
+        function App() {
+            const [user, setUser] = useState(null);
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [selectedMonth, setSelectedMonth] = useState('2026-02');
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+            if (!user) {
+                return <LoginPage onLogin={setUser} />;
+            }
+
+            return (
+                <div className="flex">
+                    <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={() => setUser(null)} />
+                    <div className="ml-0 lg:ml-64 flex-1 p-4 sm:p-8 min-h-screen">
+                        {activeTab === 'dashboard' && <Dashboard user={user} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} />}
+                        {activeTab === 'clients' && <ClientsPage user={user} />}
+                        {activeTab === 'filing' && <FilingStatusPage selectedMonth={selectedMonth} />}
+                        {activeTab === 'email-automation' && <EmailAutomationPage />}
+                        {activeTab === 'reminders' && <RemindersPage />}
+                        {activeTab === 'documents' && <DocumentsPage selectedMonth={selectedMonth} />}
+                        {activeTab === 'settings' && <SettingsPage />}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
