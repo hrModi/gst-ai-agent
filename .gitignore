@@ -1,37 +1,30 @@
 # dependencies
-/node_modules
-/.pnp
-.pnp.js
+node_modules/
 
-# testing
-/coverage
+# build output
+dist/
+build/
 
-# next.js
-/.next/
-/out/
+# environment
+.env
+.env*.local
 
-# production
-/build
-
-# misc
+# IDE
 .DS_Store
-*.pem
+.vscode/
+.idea/
 
-# debug
+# debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env
-.env*.local
-
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
 # prisma
 prisma/migrations/*/migration_lock.toml
+
+# misc
+*.pem
+coverage/
