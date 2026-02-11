@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String?
+  settings  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users          User[]
+  clients        Client[]
+  auditLogs      AuditLog[]
+  systemSettings SystemSetting[]
+
+  @@map("tenants")
+}
+
+enum UserRole {
+  ADMIN
+  CONSULTANT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  email        String
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole @default(CONSULTANT)
+  phone        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant         Tenant     @relation(fields: [tenantId], references: [id])
+  assignedClients Client[]  @relation("AssignedConsultant")
+  documents      Document[]
+  auditLogs      AuditLog[]
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+enum FilingFrequency {
+  MONTHLY
+  QUARTERLY
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Client {
+  id              String          @id @default(uuid())
+  tenantId        String          @map("tenant_id")
+  assignedTo      String?         @map("assigned_to")
+  gstin           String
+  legalName       String          @map("legal_name")
+  tradeName       String?         @map("trade_name")
+  contactPerson   String?         @map("contact_person")
+  email           String?
+  phone           String?
+  address         String?
+  stateCode       String?         @map("state_code")
+  filingFrequency FilingFrequency @default(MONTHLY) @map("filing_frequency")
+  status          ClientStatus    @default(ACTIVE)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  assignedUser User?         @relation("AssignedConsultant", fields: [assignedTo], references: [id])
+  invoiceData  InvoiceData[]
+  filingStatus FilingStatus[]
+  filedReturns FiledReturn[]
+  documents    Document[]
+  reminders    Reminder[]
+
+  @@unique([tenantId, gstin])
+  @@map("clients")
+}
+
+enum ValidationStatusEnum {
+  PENDING
+  VALID
+  INVALID
+}
+
+enum TransactionType {
+  B2B
+  B2CL
+  B2CS
+  CDNR
+  EXP
+}
+
+model InvoiceData {
+  id               String               @id @default(uuid())
+  clientId         String               @map("client_id")
+  month            Int
+  year             Int
+  invoiceNumber    String               @map("invoice_number")
+  invoiceDate      String               @map("invoice_date")
+  buyerGstin       String?              @map("buyer_gstin")
+  buyerName        String?              @map("buyer_name")
+  placeOfSupply    String?              @map("place_of_supply")
+  reverseCharge    Boolean              @default(false) @map("reverse_charge")
+  invoiceValue     Decimal              @map("invoice_value") @db.Decimal(15, 2)
+  taxableValue     Decimal              @map("taxable_value") @db.Decimal(15, 2)
+  taxRate          Decimal              @map("tax_rate") @db.Decimal(5, 2)
+  igstAmount       Decimal              @default(0) @map("igst_amount") @db.Decimal(15, 2)
+  cgstAmount       Decimal              @default(0) @map("cgst_amount") @db.Decimal(15, 2)
+  sgstAmount       Decimal              @default(0) @map("sgst_amount") @db.Decimal(15, 2)
+  cessAmount       Decimal              @default(0) @map("cess_amount") @db.Decimal(15, 2)
+  hsnCode          String?              @map("hsn_code")
+  description      String?
+  transactionType  TransactionType?     @map("transaction_type")
+  noteType         String?              @map("note_type")
+  originalInvoice  String?              @map("original_invoice")
+  exportType       String?              @map("export_type")
+  validationStatus ValidationStatusEnum @default(PENDING) @map("validation_status")
+  rowNumber        Int?                 @map("row_number")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  client           Client            @relation(fields: [clientId], references: [id])
+  validationErrors ValidationError[]
+
+  @@map("invoice_data")
+}
+
+enum ErrorSeverity {
+  ERROR
+  WARNING
+}
+
+model ValidationError {
+  id           String        @id @default(uuid())
+  invoiceDataId String       @map("invoice_data_id")
+  errorType    String        @map("error_type")
+  fieldName    String        @map("field_name")
+  errorMessage String        @map("error_message")
+  severity     ErrorSeverity @default(ERROR)
+  isResolved   Boolean       @default(false) @map("is_resolved")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  invoiceData InvoiceData @relation(fields: [invoiceDataId], references: [id], onDelete: Cascade)
+
+  @@map("validation_errors")
+}
+
+model FilingStatus {
+  id            String  @id @default(uuid())
+  clientId      String  @map("client_id")
+  month         Int
+  year          Int
+  gstr1Status   String  @default("NOT_STARTED") @map("gstr1_status")
+  gstr3bStatus  String  @default("NOT_STARTED") @map("gstr3b_status")
+  dataReceived  Boolean @default(false) @map("data_received")
+  jsonGenerated Boolean @default(false) @map("json_generated")
+  jsonFilePath  String? @map("json_file_path")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, month, year])
+  @@map("filing_status")
+}
+
+model FiledReturn {
+  id               String   @id @default(uuid())
+  clientId         String   @map("client_id")
+  returnType       String   @map("return_type")
+  month            Int
+  year             Int
+  arn              String?
+  filingDate       DateTime? @map("filing_date")
+  acknowledgmentUrl String?  @map("acknowledgment_url")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, returnType, month, year])
+  @@map("filed_returns")
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  clientId     String   @map("client_id")
+  documentType String   @map("document_type")
+  fileName     String   @map("file_name")
+  filePath     String   @map("file_path")
+  fileSize     Int?     @map("file_size")
+  month        Int?
+  year         Int?
+  uploadedBy   String   @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  client   Client @relation(fields: [clientId], references: [id])
+  uploader User   @relation(fields: [uploadedBy], references: [id])
+
+  @@map("documents")
+}
+
+enum ReminderChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model Reminder {
+  id              String         @id @default(uuid())
+  clientId        String         @map("client_id")
+  reminderType    String         @map("reminder_type")
+  channel         ReminderChannel
+  message         String?
+  status          ReminderStatus @default(PENDING)
+  scheduledAt     DateTime?      @map("scheduled_at")
+  sentAt          DateTime?      @map("sent_at")
+  month           Int?
+  year            Int?
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("reminders")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  tenantId   String   @map("tenant_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  settingKey   String   @map("setting_key")
+  settingValue String   @map("setting_value")
+  updatedBy    String?  @map("updated_by")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, settingKey])
+  @@map("system_settings")
+}
