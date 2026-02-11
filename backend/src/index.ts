@@ -1,8 +1,11 @@
 import dotenv from 'dotenv'
 import path from 'path'
 
-// Load .env from project root
-dotenv.config({ path: path.resolve(__dirname, '../../.env') })
+// Load environment-specific .env file, then fall back to .env
+const env = process.env.NODE_ENV || 'development'
+const root = path.resolve(__dirname, '../..')
+dotenv.config({ path: path.resolve(root, `.env.${env}`), override: true })
+dotenv.config({ path: path.resolve(root, '.env') })
 
 import express from 'express'
 import cors from 'cors'
