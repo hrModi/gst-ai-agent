@@ -1,11 +1,8 @@
 import dotenv from 'dotenv'
 import path from 'path'
 
-// Load environment-specific .env file, then fall back to .env
-const env = process.env.NODE_ENV || 'development'
-const root = path.resolve(__dirname, '../..')
-dotenv.config({ path: path.resolve(root, `.env.${env}`), override: true })
-dotenv.config({ path: path.resolve(root, '.env') })
+// Load backend/.env — single source of truth for all backend config
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') })
 
 import express from 'express'
 import cors from 'cors'

@@ -3,36 +3,41 @@ export async function sendEmail(
   subject: string,
   body: string
 ): Promise<{ success: boolean; messageId: string }> {
-  const apiKey = process.env.SENDGRID_API_KEY
+  const region = process.env.AWS_SES_REGION || process.env.AWS_REGION || 'ap-south-1'
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY
+  const fromEmail = process.env.AWS_SES_FROM_EMAIL || 'noreply@abcca.com'
 
-  if (!apiKey) {
-    console.warn('[Email] SENDGRID_API_KEY not configured. Skipping send.')
+  if (!accessKeyId || !secretAccessKey) {
+    console.warn('[Email] AWS credentials not configured. Skipping send.')
     console.warn(`[Email] Would have sent to: ${to}, subject: "${subject}"`)
     return { success: false, messageId: '' }
   }
 
   try {
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: to }] }],
-        from: { email: process.env.SENDGRID_FROM_EMAIL || 'noreply@abcca.com' },
-        subject,
-        content: [{ type: 'text/plain', value: body }],
-      }),
+    const { SESClient, SendEmailCommand } = await import('@aws-sdk/client-ses')
+
+    const client = new SESClient({
+      region,
+      credentials: { accessKeyId, secretAccessKey },
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`[Email] SendGrid error ${response.status}:`, errorText)
-      return { success: false, messageId: '' }
-    }
+    const result = await client.send(
+      new SendEmailCommand({
+        Source: fromEmail,
+        Destination: {
+          ToAddresses: [to],
+        },
+        Message: {
+          Subject: { Data: subject, Charset: 'UTF-8' },
+          Body: {
+            Text: { Data: body, Charset: 'UTF-8' },
+          },
+        },
+      })
+    )
 
-    const messageId = response.headers.get('x-message-id') || `sg-${Date.now()}`
+    const messageId = result.MessageId || `ses-${Date.now()}`
     console.log(`[Email] Sent to ${to}, messageId: ${messageId}`)
     return { success: true, messageId }
   } catch (error) {
