@@ -7,11 +7,7 @@ build/
 
 # environment - NEVER commit secrets
 .env
-.env.development
-.env.production
-.env*.local
-
-# keep .env.example as the template (tracked in git)
+.env.*
 !.env.example
 
 # local file uploads (dev storage)
