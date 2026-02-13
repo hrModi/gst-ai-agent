@@ -26,7 +26,7 @@ export default function Settings() {
     try {
       setLoading(true)
       const res = await api.get('/users')
-      setUsers(res.data.data.users || res.data.data || [])
+      setUsers(res.data.data || [])
     } catch {
       setError('Failed to load users')
     } finally {

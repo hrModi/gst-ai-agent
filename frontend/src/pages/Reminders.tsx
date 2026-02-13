@@ -44,8 +44,8 @@ export default function Reminders() {
         api.get('/clients', { params: { status: 'ACTIVE', limit: 200 } }),
         api.get('/reminders'),
       ])
-      setClients(clientRes.data.data.clients || clientRes.data.data || [])
-      setReminders(reminderRes.data.data.reminders || reminderRes.data.data || [])
+      setClients(clientRes.data.data || [])
+      setReminders(reminderRes.data.data || [])
     } catch {
       setError('Failed to load data')
     } finally {

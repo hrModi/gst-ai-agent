@@ -16,7 +16,8 @@ interface ClientData {
   stateCode: string
   filingFrequency: string
   status: 'ACTIVE' | 'INACTIVE'
-  assignedToName: string
+  assignedTo: string | null
+  assignedUser: { id: string; name: string; email: string } | null
   createdAt: string
 }
 
@@ -25,9 +26,8 @@ interface FilingRecord {
   month: number
   year: number
   returnType: string
-  status: string
-  arn: string
-  filedAt: string
+  arn: string | null
+  filingDate: string | null
 }
 
 interface InvoiceSummary {
@@ -74,11 +74,12 @@ export default function ClientDetail() {
     try {
       setLoading(true)
       const response = await api.get(`/clients/${id}`)
-      setClient(response.data.client || response.data)
-      setFilingHistory(response.data.filingHistory || [])
-      setInvoiceSummary(response.data.invoiceSummary || null)
+      const clientData = response.data.data
+      setClient(clientData)
+      setFilingHistory(clientData?.filedReturns || [])
+      setInvoiceSummary(null)
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load client details')
+      setError(err?.response?.data?.error || 'Failed to load client details')
     } finally {
       setLoading(false)
     }
@@ -185,7 +186,7 @@ export default function ClientDetail() {
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assigned To</label>
-            <p className="text-sm text-gray-900 mt-1">{client.assignedToName || '-'}</p>
+            <p className="text-sm text-gray-900 mt-1">{client.assignedUser?.name || '-'}</p>
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Address</label>
@@ -262,14 +263,14 @@ export default function ClientDetail() {
                   </div>
                   <div className="text-right">
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        filing.status
-                      )}`}
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        filing.arn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}
                     >
-                      {filing.status}
+                      {filing.arn ? 'Filed' : 'Pending'}
                     </span>
-                    {filing.filedAt && (
-                      <p className="text-xs text-gray-400 mt-1">{formatDate(filing.filedAt)}</p>
+                    {filing.filingDate && (
+                      <p className="text-xs text-gray-400 mt-1">{formatDate(filing.filingDate)}</p>
                     )}
                   </div>
                 </div>

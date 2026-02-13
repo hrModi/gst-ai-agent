@@ -9,8 +9,8 @@ interface Client {
   gstin: string
   legalName: string
   tradeName: string
-  assignedTo: string
-  assignedToName: string
+  assignedTo: string | null
+  assignedUser: { id: string; name: string; email: string } | null
   status: 'ACTIVE' | 'INACTIVE'
   email: string
   phone: string
@@ -50,11 +50,11 @@ export default function Clients() {
       if (statusFilter) params.status = statusFilter
 
       const response = await api.get<PaginatedResponse>('/clients', { params })
-      setClients(response.data.clients || [])
-      setTotal(response.data.total || 0)
-      setTotalPages(response.data.totalPages || 1)
+      setClients(response.data.data || [])
+      setTotal(response.data.pagination?.total || 0)
+      setTotalPages(response.data.pagination?.totalPages || 1)
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load clients')
+      setError(err?.response?.data?.error || 'Failed to load clients')
     } finally {
       setLoading(false)
     }
@@ -170,7 +170,7 @@ export default function Clients() {
                       <td className="px-6 py-4 text-sm text-gray-900">{client.legalName}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{client.tradeName || '-'}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {client.assignedToName || '-'}
+                        {client.assignedUser?.name || '-'}
                       </td>
                       <td className="px-6 py-4">
                         <span

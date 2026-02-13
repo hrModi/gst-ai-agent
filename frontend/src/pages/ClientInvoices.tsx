@@ -54,9 +54,14 @@ export default function ClientInvoices() {
     try {
       setLoading(true)
       setError('')
-      const res = await api.get(`/invoices/${clientId}`, { params: { month, year } })
-      setInvoices(res.data.data.invoices || [])
-      setClientName(res.data.data.clientName || '')
+      const [invoiceRes, clientRes] = await Promise.all([
+        api.get(`/invoices/${clientId}`, { params: { month, year } }),
+        api.get(`/clients/${clientId}`),
+      ])
+      const invoiceData = invoiceRes.data.data
+      setInvoices(Array.isArray(invoiceData) ? invoiceData : [])
+      const client = clientRes.data.data
+      setClientName(client?.tradeName || client?.legalName || '')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load invoices')
     } finally {

@@ -74,7 +74,7 @@ export default function NewClient() {
   async function fetchConsultants() {
     try {
       const response = await api.get('/users', { params: { role: 'CONSULTANT' } })
-      setConsultants(response.data.users || response.data || [])
+      setConsultants(response.data.data || [])
     } catch {
       // Non-critical, just won't populate dropdown
     }
@@ -120,7 +120,7 @@ export default function NewClient() {
       setSuccess('Client created successfully')
       setTimeout(() => navigate('/clients'), 1500)
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to create client')
+      setError(err?.response?.data?.error || 'Failed to create client')
     } finally {
       setSubmitting(false)
     }

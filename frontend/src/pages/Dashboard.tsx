@@ -81,10 +81,16 @@ export default function Dashboard() {
     try {
       setLoading(true)
       const response = await api.get('/dashboard')
-      setStats(response.data.stats || response.data)
-      setActivities(response.data.activities || [])
+      const d = response.data.data
+      setStats({
+        totalClients: d.totalClients || 0,
+        pendingFilings: d.pendingFilings || 0,
+        completedFilings: d.completedFilings || 0,
+        errors: d.errorCount || 0,
+      })
+      setActivities(d.recentActivity || [])
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load dashboard data')
+      setError(err?.response?.data?.error || 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }

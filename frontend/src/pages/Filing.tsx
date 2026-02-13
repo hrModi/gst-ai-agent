@@ -4,13 +4,14 @@ import api from '../lib/api'
 
 interface FilingStatusRow {
   clientId: string
-  clientName: string
+  legalName: string
+  tradeName: string | null
   gstin: string
   dataReceived: boolean
   gstr1Status: string
   gstr3bStatus: string
-  gstr1Arn: string
-  gstr3bArn: string
+  jsonGenerated: boolean
+  notes: string | null
 }
 
 const MONTHS = [
@@ -69,9 +70,9 @@ export default function Filing() {
       setLoading(true)
       setError('')
       const response = await api.get('/filing-status', { params: { month, year } })
-      setFilings(response.data.filings || response.data || [])
+      setFilings(response.data.data || [])
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load filing status')
+      setError(err?.response?.data?.error || 'Failed to load filing status')
     } finally {
       setLoading(false)
     }
@@ -98,7 +99,7 @@ export default function Filing() {
     setArnSubmitting(true)
     setArnError('')
     try {
-      await api.post('/filing-status/record', {
+      await api.post('/filed-returns', {
         clientId: arnModal.clientId,
         returnType: arnModal.returnType,
         month,
@@ -110,7 +111,7 @@ export default function Filing() {
       fetchFilings()
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err: any) {
-      setArnError(err?.response?.data?.message || 'Failed to record filing')
+      setArnError(err?.response?.data?.error || 'Failed to record filing')
     } finally {
       setArnSubmitting(false)
     }
@@ -209,7 +210,7 @@ export default function Filing() {
                 {filings.map((filing) => (
                   <tr key={filing.clientId} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {filing.clientName}
+                      {(filing.tradeName || filing.legalName)}
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-mono text-sm text-gray-600 uppercase">
@@ -235,9 +236,6 @@ export default function Filing() {
                       >
                         {formatStatusLabel(filing.gstr1Status)}
                       </span>
-                      {filing.gstr1Arn && (
-                        <p className="text-xs text-gray-400 font-mono mt-1">{filing.gstr1Arn}</p>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span
@@ -247,15 +245,12 @@ export default function Filing() {
                       >
                         {formatStatusLabel(filing.gstr3bStatus)}
                       </span>
-                      {filing.gstr3bArn && (
-                        <p className="text-xs text-gray-400 font-mono mt-1">{filing.gstr3bArn}</p>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         {filing.gstr1Status !== 'filed' && (
                           <button
-                            onClick={() => openArnModal(filing.clientId, filing.clientName, 'GSTR1')}
+                            onClick={() => openArnModal(filing.clientId, (filing.tradeName || filing.legalName), 'GSTR1')}
                             className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-medium transition-colors"
                           >
                             Record GSTR-1
@@ -263,7 +258,7 @@ export default function Filing() {
                         )}
                         {filing.gstr3bStatus !== 'filed' && (
                           <button
-                            onClick={() => openArnModal(filing.clientId, filing.clientName, 'GSTR3B')}
+                            onClick={() => openArnModal(filing.clientId, (filing.tradeName || filing.legalName), 'GSTR3B')}
                             className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-medium transition-colors"
                           >
                             Record GSTR-3B

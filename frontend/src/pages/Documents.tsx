@@ -41,8 +41,8 @@ export default function Documents() {
         api.get('/documents', { params: { clientId: filterClient || undefined, documentType: filterType || undefined } }),
         api.get('/clients', { params: { status: 'ACTIVE', limit: 200 } }),
       ])
-      setDocuments(docRes.data.data.documents || docRes.data.data || [])
-      setClients(clientRes.data.data.clients || clientRes.data.data || [])
+      setDocuments(docRes.data.data || [])
+      setClients(clientRes.data.data || [])
     } catch {
       setError('Failed to load documents')
     } finally {

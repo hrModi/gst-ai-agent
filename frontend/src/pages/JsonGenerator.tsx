@@ -40,7 +40,7 @@ export default function JsonGenerator() {
     async function fetchClients() {
       try {
         const res = await api.get('/clients', { params: { status: 'ACTIVE', limit: 200 } })
-        setClients(res.data.data.clients || res.data.data || [])
+        setClients(res.data.data || [])
       } catch {
         setError('Failed to load clients')
       } finally {

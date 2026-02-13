@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${storedToken}` },
       })
-      setUser(response.data.user)
+      setUser(response.data.data)
       setToken(storedToken)
     } catch {
       localStorage.removeItem('gst_token')
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string) {
     const response = await api.post('/auth/login', { email, password })
-    const { token: newToken, user: newUser } = response.data
+    const { token: newToken, user: newUser } = response.data.data
     localStorage.setItem('gst_token', newToken)
     localStorage.setItem('gst_user', JSON.stringify(newUser))
     setToken(newToken)

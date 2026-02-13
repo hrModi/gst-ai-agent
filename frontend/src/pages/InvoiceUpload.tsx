@@ -48,7 +48,7 @@ export default function InvoiceUpload() {
   async function fetchClients() {
     try {
       const response = await api.get('/clients', { params: { limit: 200, status: 'ACTIVE' } })
-      setClients(response.data.clients || response.data || [])
+      setClients(response.data.data || [])
     } catch {
       // Non-critical
     }
@@ -127,10 +127,17 @@ export default function InvoiceUpload() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
+      const d = response.data.data
       setSuccess('File uploaded and processed successfully')
-      setValidationResult(response.data.validation || response.data)
+      setValidationResult({
+        totalRows: d.totalInPeriod || d.uploaded || 0,
+        validRows: d.valid || 0,
+        errorRows: d.invalid || 0,
+        warningRows: d.totalWarnings || 0,
+        errors: [],
+      })
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to upload file')
+      setError(err?.response?.data?.error || 'Failed to upload file')
     } finally {
       setUploading(false)
     }

@@ -32,7 +32,7 @@ export default function Login() {
       navigate('/dashboard', { replace: true })
     } catch (err: any) {
       const message =
-        err?.response?.data?.message || err?.message || 'Login failed. Please try again.'
+        err?.response?.data?.error || err?.message || 'Login failed. Please try again.'
       setError(message)
     } finally {
       setSubmitting(false)
