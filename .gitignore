@@ -32,3 +32,5 @@ prisma/migrations/*/migration_lock.toml
 # misc
 *.pem
 coverage/
+Dev
+Prod
