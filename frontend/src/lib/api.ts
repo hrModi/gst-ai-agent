@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+const isDev = import.meta.env.DEV
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: isDev ? '/api' : 'https://api.gstpilot.in',
   headers: {
     'Content-Type': 'application/json',
   },
