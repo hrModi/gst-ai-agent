@@ -20,6 +20,7 @@ model Tenant {
   clients        Client[]
   auditLogs      AuditLog[]
   systemSettings SystemSetting[]
+  sheetSyncConfig SheetSyncConfig?
 
   @@map("tenants")
 }
@@ -72,10 +73,17 @@ model Client {
   phone           String?
   address         String?
   stateCode       String?         @map("state_code")
-  filingFrequency FilingFrequency @default(MONTHLY) @map("filing_frequency")
-  status          ClientStatus    @default(ACTIVE)
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  filingFrequency   FilingFrequency @default(MONTHLY) @map("filing_frequency")
+  status            ClientStatus    @default(ACTIVE)
+  automationEnabled Boolean         @default(false) @map("automation_enabled")
+  notifyEmail       Boolean         @default(true) @map("notify_email")
+  notifyWhatsapp    Boolean         @default(false) @map("notify_whatsapp")
+  gstr1DueDay       Int             @default(11) @map("gstr1_due_day")
+  gstr3bDueDay      Int             @default(20) @map("gstr3b_due_day")
+  reminderDaysBefore Int[]          @default([7, 3, 1]) @map("reminder_days_before")
+  dataEmailSubject  String?         @map("data_email_subject")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id])
   assignedUser User?         @relation("AssignedConsultant", fields: [assignedTo], references: [id])
@@ -167,10 +175,12 @@ model FilingStatus {
   gstr3bStatus  String  @default("NOT_STARTED") @map("gstr3b_status")
   dataReceived  Boolean @default(false) @map("data_received")
   jsonGenerated Boolean @default(false) @map("json_generated")
-  jsonFilePath  String? @map("json_file_path")
-  notes         String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  jsonFilePath   String?   @map("json_file_path")
+  stage          String    @default("NOT_STARTED")
+  stageUpdatedAt DateTime? @map("stage_updated_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   client Client @relation(fields: [clientId], references: [id])
 
@@ -275,4 +285,39 @@ model SystemSetting {
 
   @@unique([tenantId, settingKey])
   @@map("system_settings")
+}
+
+model YakshActivity {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  clientId     String?  @map("client_id")
+  activityType String   @map("activity_type")
+  description  String
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([clientId])
+  @@map("yaksh_activities")
+}
+
+model SheetSyncConfig {
+  id                String    @id @default(uuid())
+  tenantId          String    @unique @map("tenant_id")
+  spreadsheetUrl    String?   @map("spreadsheet_url")
+  spreadsheetId     String?   @map("spreadsheet_id")
+  sheetName         String    @default("Sheet1") @map("sheet_name")
+  googleAccessToken  String?  @map("google_access_token")
+  googleRefreshToken String?  @map("google_refresh_token")
+  googleTokenExpiry  DateTime? @map("google_token_expiry")
+  googleEmail        String?  @map("google_email")
+  lastSyncedAt      DateTime? @map("last_synced_at")
+  lastSyncStatus    String?   @map("last_sync_status")
+  lastSyncSummary   Json?     @map("last_sync_summary")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("sheet_sync_configs")
 }

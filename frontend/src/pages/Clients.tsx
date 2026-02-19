@@ -12,6 +12,7 @@ interface Client {
   assignedTo: string | null
   assignedUser: { id: string; name: string; email: string } | null
   status: 'ACTIVE' | 'INACTIVE'
+  automationEnabled: boolean
   email: string
   phone: string
 }
@@ -156,6 +157,9 @@ export default function Clients() {
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
+                    <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Auto
+                    </th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
@@ -184,6 +188,15 @@ export default function Clients() {
                         >
                           {client.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {client.automationEnabled ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                            ON
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <Link

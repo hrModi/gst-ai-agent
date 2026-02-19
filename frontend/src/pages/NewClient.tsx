@@ -63,6 +63,13 @@ export default function NewClient() {
     stateCode: '',
     filingFrequency: 'MONTHLY',
     assignedTo: '',
+    automationEnabled: false,
+    notifyEmail: true,
+    notifyWhatsapp: false,
+    gstr1DueDay: 11,
+    gstr3bDueDay: 20,
+    reminderDaysBefore: [7, 3, 1] as number[],
+    dataEmailSubject: '',
   })
 
   const [gstinError, setGstinError] = useState('')
@@ -330,6 +337,92 @@ export default function NewClient() {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            {/* Automation Config */}
+            <div className="pt-4 border-t border-gray-200">
+              <h3 className="text-base font-semibold text-gray-800 mb-4">Automation Settings</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    id="automationEnabled"
+                    type="checkbox"
+                    checked={form.automationEnabled}
+                    onChange={(e) => setForm(prev => ({ ...prev, automationEnabled: e.target.checked }))}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="automationEnabled" className="text-sm font-medium text-gray-700">
+                    Enable automated reminders and processing for this client
+                  </label>
+                </div>
+
+                {form.automationEnabled && (
+                  <>
+                    <div className="flex items-center gap-6">
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={form.notifyEmail}
+                          onChange={(e) => setForm(prev => ({ ...prev, notifyEmail: e.target.checked }))}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        Notify via Email
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={form.notifyWhatsapp}
+                          onChange={(e) => setForm(prev => ({ ...prev, notifyWhatsapp: e.target.checked }))}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        Notify via WhatsApp
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GSTR-1 Due Day</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={28}
+                          value={form.gstr1DueDay}
+                          onChange={(e) => setForm(prev => ({ ...prev, gstr1DueDay: Number(e.target.value) }))}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GSTR-3B Due Day</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={28}
+                          value={form.gstr3bDueDay}
+                          onChange={(e) => setForm(prev => ({ ...prev, gstr3bDueDay: Number(e.target.value) }))}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Reminder Days Before Due Date
+                      </label>
+                      <input
+                        type="text"
+                        value={form.reminderDaysBefore.join(', ')}
+                        onChange={(e) => {
+                          const days = e.target.value.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d > 0)
+                          setForm(prev => ({ ...prev, reminderDaysBefore: days }))
+                        }}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                        placeholder="7, 3, 1"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Comma-separated days (e.g., 7, 3, 1)</p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

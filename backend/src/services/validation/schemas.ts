@@ -16,6 +16,13 @@ export const clientSchema = z.object({
   stateCode: z.string().optional(),
   filingFrequency: z.enum(['MONTHLY', 'QUARTERLY']).default('MONTHLY'),
   assignedTo: z.string().uuid().optional().nullable(),
+  automationEnabled: z.boolean().optional(),
+  notifyEmail: z.boolean().optional(),
+  notifyWhatsapp: z.boolean().optional(),
+  gstr1DueDay: z.number().int().min(1).max(28).optional(),
+  gstr3bDueDay: z.number().int().min(1).max(28).optional(),
+  reminderDaysBefore: z.array(z.number().int().min(1).max(30)).optional(),
+  dataEmailSubject: z.string().optional().nullable(),
 })
 
 export const invoiceDataSchema = z.object({

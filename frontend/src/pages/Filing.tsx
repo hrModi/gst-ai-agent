@@ -11,6 +11,7 @@ interface FilingStatusRow {
   gstr1Status: string
   gstr3bStatus: string
   jsonGenerated: boolean
+  stage: string
   notes: string | null
 }
 
@@ -39,6 +40,27 @@ function getStatusBadge(status: string) {
 function formatStatusLabel(status: string): string {
   if (!status) return 'Not Started'
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function getStageBadge(stage: string) {
+  switch (stage) {
+    case 'FILED':
+    case 'READY_TO_FILE':
+      return 'bg-green-100 text-green-800'
+    case 'JSON_GENERATED':
+    case 'VALIDATED':
+      return 'bg-blue-100 text-blue-800'
+    case 'VALIDATING':
+    case 'DATA_RECEIVED':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'VALIDATION_FAILED':
+      return 'bg-red-100 text-red-800'
+    case 'REMINDER_SENT':
+      return 'bg-purple-100 text-purple-800'
+    case 'NOT_STARTED':
+    default:
+      return 'bg-gray-100 text-gray-600'
+  }
 }
 
 export default function Filing() {
@@ -193,6 +215,9 @@ export default function Filing() {
                     GSTIN
                   </th>
                   <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Stage
+                  </th>
+                  <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Data Received
                   </th>
                   <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -215,6 +240,13 @@ export default function Filing() {
                     <td className="px-6 py-4">
                       <span className="font-mono text-sm text-gray-600 uppercase">
                         {filing.gstin}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStageBadge(filing.stage)}`}
+                      >
+                        {formatStatusLabel(filing.stage || 'NOT_STARTED')}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
