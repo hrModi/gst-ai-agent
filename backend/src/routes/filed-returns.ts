@@ -93,7 +93,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 // GET /api/filed-returns/:clientId
 router.get('/:clientId', async (req: AuthRequest, res: Response) => {
   try {
-    const { clientId } = req.params
+    const clientId = req.params.clientId as string
 
     // Verify client belongs to tenant
     const clientWhere: any = {

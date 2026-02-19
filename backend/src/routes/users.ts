@@ -45,7 +45,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     const existing = await prisma.user.findFirst({
       where: {
-        id: req.params.id,
+        id: req.params.id as string,
         tenantId: req.user!.tenantId,
       },
     })
@@ -67,7 +67,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     if (isActive !== undefined) updateData.isActive = isActive
 
     const updated = await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: updateData,
       select: {
         id: true,

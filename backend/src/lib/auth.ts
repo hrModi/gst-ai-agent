@@ -16,7 +16,7 @@ export function signToken(payload: object): string {
   if (!secret) {
     throw new Error('JWT_SECRET is not defined in environment variables')
   }
-  const expiresIn = process.env.JWT_EXPIRY || '24h'
+  const expiresIn = (process.env.JWT_EXPIRY || '24h') as string & jwt.SignOptions['expiresIn']
   return jwt.sign(payload, secret, { expiresIn })
 }
 

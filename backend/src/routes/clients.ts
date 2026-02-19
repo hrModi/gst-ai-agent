@@ -142,7 +142,7 @@ router.post('/', authorize('ADMIN'), async (req: AuthRequest, res: Response) => 
 router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const where: any = {
-      id: req.params.id,
+      id: req.params.id as string,
       tenantId: req.user!.tenantId,
     }
 
@@ -182,7 +182,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     const where: any = {
-      id: req.params.id,
+      id: req.params.id as string,
       tenantId: req.user!.tenantId,
     }
 
@@ -204,7 +204,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         where: {
           tenantId: req.user!.tenantId,
           gstin: data.gstin,
-          id: { not: req.params.id },
+          id: { not: req.params.id as string },
         },
       })
       if (duplicate) {
@@ -214,7 +214,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     const updated = await prisma.client.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         gstin: data.gstin,
         legalName: data.legalName,
@@ -262,7 +262,7 @@ router.delete('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response
   try {
     const existing = await prisma.client.findFirst({
       where: {
-        id: req.params.id,
+        id: req.params.id as string,
         tenantId: req.user!.tenantId,
       },
     })
@@ -273,7 +273,7 @@ router.delete('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response
     }
 
     const updated = await prisma.client.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { status: 'INACTIVE' },
     })
 

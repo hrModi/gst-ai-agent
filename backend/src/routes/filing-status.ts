@@ -81,7 +81,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     // Verify filing status belongs to a client in this tenant
     const existing = await prisma.filingStatus.findFirst({
       where: {
-        id: req.params.id,
+        id: req.params.id as string,
         client: { tenantId: req.user!.tenantId },
       },
     })
@@ -93,7 +93,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     const data = parsed.data
     const updated = await prisma.filingStatus.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         ...(data.gstr1Status !== undefined && { gstr1Status: data.gstr1Status }),
         ...(data.gstr3bStatus !== undefined && { gstr3bStatus: data.gstr3bStatus }),
