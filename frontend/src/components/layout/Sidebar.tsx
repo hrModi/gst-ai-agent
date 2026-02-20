@@ -12,7 +12,6 @@ const navItems = [
 ]
 
 const adminItems = [
-  { to: '/sheet-sync', label: 'Sheet Sync', icon: '\u21C4' },
   { to: '/settings', label: 'Settings', icon: '\u2699' },
 ]
 

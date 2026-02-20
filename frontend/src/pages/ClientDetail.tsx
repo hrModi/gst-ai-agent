@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../lib/api'
@@ -57,18 +57,63 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
+interface Consultant {
+  id: string
+  name: string
+  email: string
+}
+
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [client, setClient] = useState<ClientData | null>(null)
   const [filingHistory, setFilingHistory] = useState<FilingRecord[]>([])
   const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [consultants, setConsultants] = useState<Consultant[]>([])
+  const [assigningConsultant, setAssigningConsultant] = useState(false)
 
   useEffect(() => {
-    if (id) fetchClientDetail()
+    if (id) {
+      fetchClientDetail()
+      if (user?.role === 'ADMIN') fetchConsultants()
+    }
   }, [id])
+
+  async function fetchConsultants() {
+    try {
+      const response = await api.get('/users')
+      setConsultants(response.data.data || [])
+    } catch {
+      // Non-critical
+    }
+  }
+
+  async function handleAssignConsultant(consultantId: string) {
+    if (!client) return
+    try {
+      setAssigningConsultant(true)
+      await api.put(`/clients/${id}`, {
+        gstin: client.gstin,
+        legalName: client.legalName,
+        tradeName: client.tradeName,
+        contactPerson: client.contactPerson,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        stateCode: client.stateCode,
+        filingFrequency: client.filingFrequency,
+        assignedTo: consultantId || null,
+      })
+      fetchClientDetail()
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to update consultant assignment')
+    } finally {
+      setAssigningConsultant(false)
+    }
+  }
 
   async function fetchClientDetail() {
     try {
@@ -152,7 +197,10 @@ export default function ClientDetail() {
               {client.status}
             </span>
             {(user?.role === 'ADMIN') && (
-              <button className="px-4 py-2 text-sm border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
+              <button
+                onClick={() => navigate(`/clients/${id}/edit`)}
+                className="px-4 py-2 text-sm border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+              >
                 Edit Client
               </button>
             )}
@@ -186,7 +234,21 @@ export default function ClientDetail() {
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assigned To</label>
-            <p className="text-sm text-gray-900 mt-1">{client.assignedUser?.name || '-'}</p>
+            {user?.role === 'ADMIN' ? (
+              <select
+                value={client.assignedTo || ''}
+                onChange={(e) => handleAssignConsultant(e.target.value)}
+                disabled={assigningConsultant}
+                className="mt-1 w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
+              >
+                <option value="">Unassigned</option>
+                {consultants.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-sm text-gray-900 mt-1">{client.assignedUser?.name || '-'}</p>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Address</label>

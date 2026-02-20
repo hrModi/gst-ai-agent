@@ -44,13 +44,12 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       },
     })
 
-    const pendingFilings = clientIds.length - filingStatuses.filter(
-      (fs) => fs.gstr1Status === 'FILED'
-    ).length
-
-    const completedFilings = filingStatuses.filter(
-      (fs) => fs.gstr1Status === 'FILED'
-    ).length
+    const gstr1FiledCount = filingStatuses.filter((fs) => fs.gstr1Status === 'FILED').length
+    const gstr3bFiledCount = filingStatuses.filter((fs) => fs.gstr3bStatus === 'FILED').length
+    const jsonGeneratedCount = filingStatuses.filter((fs) => fs.jsonGenerated).length
+    const dataReceivedCount = filingStatuses.filter((fs) => fs.dataReceived).length
+    const pendingFilings = clientIds.length - gstr1FiledCount
+    const completedFilings = gstr1FiledCount
 
     // Count invoices with validation errors for current month
     const errorCount = await prisma.invoiceData.count({
@@ -105,6 +104,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         pendingFilings,
         completedFilings,
         errorCount,
+        dataReceivedCount,
+        jsonGeneratedCount,
+        gstr1FiledCount,
+        gstr3bFiledCount,
         currentPeriod: {
           month: currentMonth,
           year: currentYear,
@@ -122,11 +125,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         statusSummary,
         recentActivity: recentActivity.map((log) => ({
           id: log.id,
-          action: log.action,
-          entityType: log.entityType,
-          entityId: log.entityId,
-          userName: log.user.name,
-          createdAt: log.createdAt,
+          message: `${log.user.name} ${log.action.toLowerCase()} ${log.entityType.toLowerCase().replace('_', ' ')}`,
+          timestamp: log.createdAt,
+          type: log.action === 'DELETE' ? 'error' : log.action === 'CREATE' ? 'success' : 'info',
         })),
       },
     })

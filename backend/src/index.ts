@@ -21,6 +21,8 @@ import userRoutes from './routes/users'
 import auditLogRoutes from './routes/audit-logs'
 import sheetSyncRoutes from './routes/sheet-sync'
 import agentActivityRoutes from './routes/agent-activity'
+import systemSettingsRoutes from './routes/system-settings'
+import reminderTemplateRoutes from './routes/reminder-templates'
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -47,6 +49,8 @@ app.use('/api/users', userRoutes)
 app.use('/api/audit-logs', auditLogRoutes)
 app.use('/api/sheet-sync', sheetSyncRoutes)
 app.use('/api/agent-activity', agentActivityRoutes)
+app.use('/api/system-settings', systemSettingsRoutes)
+app.use('/api/reminder-templates', reminderTemplateRoutes)
 
 // Health check
 app.get('/api/health', (_req, res) => {

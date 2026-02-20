@@ -4,7 +4,17 @@ import { authenticate } from '../middleware/auth'
 import { reminderSchema } from '../services/validation/schemas'
 import { sendEmail } from '../services/email'
 import { sendWhatsApp } from '../services/whatsapp'
+import { DEFAULT_TEMPLATES } from './reminder-templates'
 import { AuthRequest } from '../types'
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+function applyPlaceholders(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`)
+}
 
 const router = Router()
 
@@ -36,13 +46,45 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return
     }
 
+    // Resolve message from template if not provided
+    let resolvedMessage = data.message || null
+    let resolvedSubject = `GST Filing Reminder - ${data.reminderType}`
+
+    if (!resolvedMessage) {
+      // Look up custom template
+      const dbTemplate = await prisma.reminderTemplate.findFirst({
+        where: {
+          tenantId: req.user!.tenantId,
+          reminderType: data.reminderType,
+          channel: data.channel,
+          isActive: true,
+        },
+      })
+
+      const templateDefaults = DEFAULT_TEMPLATES[data.reminderType]?.[data.channel]
+      const templateBody = dbTemplate?.body ?? templateDefaults?.body ?? `Reminder: Please submit your GST data.`
+      const templateSubject = dbTemplate?.subject ?? (templateDefaults as any)?.subject ?? resolvedSubject
+
+      const monthName = data.month ? MONTH_NAMES[data.month - 1] : ''
+      const vars: Record<string, string> = {
+        clientName: client.legalName,
+        month: monthName,
+        year: data.year ? String(data.year) : '',
+        dueDate: '',
+        consultantName: '',
+      }
+
+      resolvedMessage = applyPlaceholders(templateBody, vars)
+      resolvedSubject = applyPlaceholders(templateSubject, vars)
+    }
+
     // Create the reminder
     const reminder = await prisma.reminder.create({
       data: {
         clientId: data.clientId,
         reminderType: data.reminderType,
         channel: data.channel,
-        message: data.message,
+        message: resolvedMessage,
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
         month: data.month,
         year: data.year,
@@ -52,13 +94,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     // Attempt to send via appropriate channel
     let sendResult: { success: boolean } = { success: false }
-    const messageText = data.message || `Reminder: Please submit your GST data for ${data.month}/${data.year}`
+    const messageText = resolvedMessage
 
     try {
       if (data.channel === 'EMAIL' && client.email) {
         const emailResult = await sendEmail(
           client.email,
-          `GST Filing Reminder - ${data.reminderType}`,
+          resolvedSubject,
           messageText
         )
         sendResult = { success: emailResult.success }

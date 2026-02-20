@@ -138,6 +138,51 @@ router.post('/', authorize('ADMIN'), async (req: AuthRequest, res: Response) => 
   }
 })
 
+// PUT /api/clients/bulk-assign (Admin only) — must be before /:id
+router.put('/bulk-assign', authorize('ADMIN'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { clientIds, consultantId } = req.body
+
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      res.status(400).json({ error: 'clientIds must be a non-empty array' })
+      return
+    }
+
+    // Validate consultantId if provided
+    if (consultantId) {
+      const consultant = await prisma.user.findFirst({
+        where: { id: consultantId, tenantId: req.user!.tenantId, isActive: true },
+      })
+      if (!consultant) {
+        res.status(404).json({ error: 'Consultant not found' })
+        return
+      }
+    }
+
+    const result = await prisma.client.updateMany({
+      where: {
+        id: { in: clientIds },
+        tenantId: req.user!.tenantId,
+      },
+      data: { assignedTo: consultantId || null },
+    })
+
+    await createAuditLog({
+      userId: req.user!.id,
+      tenantId: req.user!.tenantId,
+      action: 'BULK_ASSIGN',
+      entityType: 'CLIENT',
+      newValue: { clientIds, consultantId: consultantId || null },
+      ipAddress: req.ip,
+    })
+
+    res.json({ data: { updated: result.count } })
+  } catch (error) {
+    console.error('Bulk assign error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // GET /api/clients/:id
 router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {

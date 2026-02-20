@@ -12,7 +12,7 @@ import JsonGenerator from './pages/JsonGenerator'
 import Reminders from './pages/Reminders'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
-import SheetSync from './pages/SheetSync'
+import EditClient from './pages/EditClient'
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
@@ -77,6 +77,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/clients/:id/edit"
+        element={
+          <ProtectedRoute adminOnly>
+            <EditClient />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/filing"
         element={
           <ProtectedRoute>
@@ -121,14 +129,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Documents />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/sheet-sync"
-        element={
-          <ProtectedRoute adminOnly>
-            <SheetSync />
           </ProtectedRoute>
         }
       />
