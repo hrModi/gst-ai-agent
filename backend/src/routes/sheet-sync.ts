@@ -18,19 +18,19 @@ router.get('/google-callback', async (req: Request, res: Response) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
 
     if (oauthError) {
-      res.redirect(`${frontendUrl}/sheet-sync?error=${encodeURIComponent(String(oauthError))}`)
+      res.redirect(`${frontendUrl}/clients?error=${encodeURIComponent(String(oauthError))}`)
       return
     }
 
     if (!code) {
-      res.redirect(`${frontendUrl}/sheet-sync?error=${encodeURIComponent('No authorization code received')}`)
+      res.redirect(`${frontendUrl}/clients?error=${encodeURIComponent('No authorization code received')}`)
       return
     }
 
     // state param carries the tenantId
     const tenantId = req.query.state as string
     if (!tenantId) {
-      res.redirect(`${frontendUrl}/sheet-sync?error=${encodeURIComponent('Missing state parameter')}`)
+      res.redirect(`${frontendUrl}/clients?error=${encodeURIComponent('Missing state parameter')}`)
       return
     }
 
@@ -57,11 +57,11 @@ router.get('/google-callback', async (req: Request, res: Response) => {
       },
     })
 
-    res.redirect(`${frontendUrl}/sheet-sync?connected=true`)
+    res.redirect(`${frontendUrl}/clients?connected=true`)
   } catch (error: any) {
     console.error('Google OAuth callback error:', error)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
-    res.redirect(`${frontendUrl}/sheet-sync?error=${encodeURIComponent(error.message || 'OAuth failed')}`)
+    res.redirect(`${frontendUrl}/clients?error=${encodeURIComponent(error.message || 'OAuth failed')}`)
   }
 })
 
@@ -358,6 +358,9 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
             address: row.address || null,
             stateCode: row.stateCode || null,
             filingFrequency: (row.filingFrequency as 'MONTHLY' | 'QUARTERLY') || 'MONTHLY',
+            automationEnabled: true,
+            notifyEmail: true,
+            notifyWhatsapp: true,
           },
         })
 
@@ -388,18 +391,20 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
           continue
         }
 
+        // Only update fields explicitly present in the payload to avoid
+        // overwriting unchanged fields (e.g. tradeName) with null
+        const updateData: Record<string, any> = { legalName: row.legalName }
+        if ('tradeName' in row)       updateData.tradeName      = row.tradeName || null
+        if ('contactPerson' in row)   updateData.contactPerson  = row.contactPerson || null
+        if ('email' in row)           updateData.email          = row.email || null
+        if ('phone' in row)           updateData.phone          = row.phone || null
+        if ('address' in row)         updateData.address        = row.address || null
+        if ('stateCode' in row)       updateData.stateCode      = row.stateCode || null
+        if ('filingFrequency' in row) updateData.filingFrequency = (row.filingFrequency as 'MONTHLY' | 'QUARTERLY') || existing.filingFrequency
+
         const updatedClient = await prisma.client.update({
           where: { id: row.clientId },
-          data: {
-            legalName: row.legalName,
-            tradeName: row.tradeName || null,
-            contactPerson: row.contactPerson || null,
-            email: row.email || null,
-            phone: row.phone || null,
-            address: row.address || null,
-            stateCode: row.stateCode || null,
-            filingFrequency: (row.filingFrequency as 'MONTHLY' | 'QUARTERLY') || existing.filingFrequency,
-          },
+          data: updateData,
         })
 
         await createAuditLog({

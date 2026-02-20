@@ -8,40 +8,76 @@ const router = Router()
 router.use(authenticate)
 
 const DEFAULT_TEMPLATES: Record<string, Record<string, { subject?: string; body: string }>> = {
-  DATA_COLLECTION: {
+  SALES_DATA_COLLECTION: {
     EMAIL: {
-      subject: 'GST Data Required for {month} {year}',
-      body: "Dear {clientName},\n\nWe haven't received your GST data for {month} {year}. Please submit at the earliest.\n\nRegards,\nTeam",
+      subject: 'Sales Invoice Data Required for {month} {year}',
+      body: 'Dear {clientName},\n\nWe need your sales invoices for {month} {year} to file your GSTR-1. Please share at the earliest.\n\nRegards,\nTeam',
     },
     WHATSAPP: {
-      body: 'Hi {clientName}, reminder to submit your GST data for {month} {year} to avoid filing delays.',
+      body: 'Hi {clientName}, please share your sales invoices for {month} {year} so we can file your GSTR-1 on time.',
     },
     SMS: {
-      body: 'Hi {clientName}, please submit GST data for {month} {year}. Contact {consultantName}.',
+      body: 'Hi {clientName}, please share sales invoices for {month} {year} for GSTR-1 filing. Contact {consultantName}.',
     },
   },
-  FILING_DEADLINE: {
+  PURCHASE_DATA_COLLECTION: {
     EMAIL: {
-      subject: 'URGENT: GST Filing Deadline on {dueDate}',
-      body: 'Dear {clientName},\n\nYour GSTR-1 is due on {dueDate}. Please act immediately.\n\nRegards,\nTeam',
+      subject: 'Purchase & ITC Data Required for {month} {year}',
+      body: 'Dear {clientName},\n\nWe need your purchase invoices and ITC data for {month} {year} to file your GSTR-3B. Please share at the earliest.\n\nRegards,\nTeam',
     },
     WHATSAPP: {
-      body: 'URGENT: {clientName}, GST filing deadline is {dueDate}. Contact {consultantName} immediately.',
+      body: 'Hi {clientName}, please share your purchase/ITC data for {month} {year} so we can file your GSTR-3B on time.',
     },
     SMS: {
-      body: 'URGENT: {clientName} GST deadline {dueDate}. Call {consultantName} now.',
+      body: 'Hi {clientName}, please share purchase/ITC data for {month} {year} for GSTR-3B filing. Contact {consultantName}.',
     },
   },
-  FOLLOW_UP: {
+  SALES_FOLLOW_UP: {
     EMAIL: {
-      subject: 'Follow-up: GST Data for {month} {year}',
-      body: 'Dear {clientName},\n\nThis is a follow-up for the pending GST data submission for {month} {year}.\n\nRegards,\nTeam',
+      subject: 'Reminder: Sales Data Pending for {month} {year}',
+      body: "Dear {clientName},\n\nThis is a follow-up. We still haven't received your sales invoices for {month} {year}. Please share urgently to avoid GSTR-1 filing delays.\n\nRegards,\nTeam",
     },
     WHATSAPP: {
-      body: 'Hi {clientName}, following up on your GST data for {month} {year}.',
+      body: 'Hi {clientName}, following up — sales invoices for {month} {year} are still pending. Please share asap.',
     },
     SMS: {
-      body: 'Hi {clientName}, please submit GST data for {month} {year}. Urgent.',
+      body: '{clientName}, sales invoices for {month} {year} still pending. Contact {consultantName} urgently.',
+    },
+  },
+  PURCHASE_FOLLOW_UP: {
+    EMAIL: {
+      subject: 'Reminder: Purchase Data Pending for {month} {year}',
+      body: "Dear {clientName},\n\nThis is a follow-up. We still haven't received your purchase/ITC data for {month} {year}. Please share urgently to avoid GSTR-3B filing delays.\n\nRegards,\nTeam",
+    },
+    WHATSAPP: {
+      body: 'Hi {clientName}, following up — purchase/ITC data for {month} {year} is still pending. Please share asap.',
+    },
+    SMS: {
+      body: '{clientName}, purchase/ITC data for {month} {year} still pending. Contact {consultantName} urgently.',
+    },
+  },
+  GSTR1_DEADLINE: {
+    EMAIL: {
+      subject: 'Urgent: GSTR-1 Filing Deadline is {dueDate}',
+      body: 'Dear {clientName},\n\nThe GSTR-1 filing deadline is {dueDate}. Please submit your sales invoices to us immediately to avoid a late filing.\n\nRegards,\nTeam',
+    },
+    WHATSAPP: {
+      body: 'Urgent {clientName}: GSTR-1 deadline is {dueDate}. Please submit your sales data to us immediately.',
+    },
+    SMS: {
+      body: 'URGENT {clientName}: GSTR-1 deadline {dueDate}. Share sales data now. Call {consultantName}.',
+    },
+  },
+  GSTR3B_DEADLINE: {
+    EMAIL: {
+      subject: 'Urgent: GSTR-3B Filing Deadline is {dueDate}',
+      body: 'Dear {clientName},\n\nThe GSTR-3B filing deadline is {dueDate}. Please submit your purchase/ITC data to us immediately to avoid a late filing.\n\nRegards,\nTeam',
+    },
+    WHATSAPP: {
+      body: 'Urgent {clientName}: GSTR-3B deadline is {dueDate}. Please submit your purchase/ITC data to us immediately.',
+    },
+    SMS: {
+      body: 'URGENT {clientName}: GSTR-3B deadline {dueDate}. Share purchase data now. Call {consultantName}.',
     },
   },
 }
@@ -88,7 +124,7 @@ router.put('/:reminderType/:channel', authorize('ADMIN'), async (req: AuthReques
       return
     }
 
-    const validTypes = ['DATA_COLLECTION', 'FILING_DEADLINE', 'FOLLOW_UP']
+    const validTypes = ['SALES_DATA_COLLECTION', 'PURCHASE_DATA_COLLECTION', 'SALES_FOLLOW_UP', 'PURCHASE_FOLLOW_UP', 'GSTR1_DEADLINE', 'GSTR3B_DEADLINE']
     const validChannels = ['EMAIL', 'WHATSAPP', 'SMS']
 
     if (!validTypes.includes(reminderType)) {

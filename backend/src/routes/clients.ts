@@ -25,6 +25,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     // Consultants can only see their assigned clients
     if (req.user!.role === 'CONSULTANT') {
       where.assignedTo = req.user!.id
+    } else if (assignedTo === 'unassigned') {
+      where.assignedTo = null
     } else if (assignedTo) {
       where.assignedTo = assignedTo as string
     }
@@ -179,6 +181,46 @@ router.put('/bulk-assign', authorize('ADMIN'), async (req: AuthRequest, res: Res
     res.json({ data: { updated: result.count } })
   } catch (error) {
     console.error('Bulk assign error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// PUT /api/clients/bulk-automation (Admin only) — must be before /:id
+router.put('/bulk-automation', authorize('ADMIN'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { clientIds, automationEnabled, notifyEmail, notifyWhatsapp, reminderDaysBefore } = req.body
+
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      res.status(400).json({ error: 'clientIds must be a non-empty array' })
+      return
+    }
+    if (typeof automationEnabled !== 'boolean') {
+      res.status(400).json({ error: 'automationEnabled must be a boolean' })
+      return
+    }
+
+    const result = await prisma.client.updateMany({
+      where: { id: { in: clientIds }, tenantId: req.user!.tenantId },
+      data: {
+        automationEnabled,
+        notifyEmail: notifyEmail ?? true,
+        notifyWhatsapp: notifyWhatsapp ?? false,
+        ...(Array.isArray(reminderDaysBefore) && { reminderDaysBefore }),
+      },
+    })
+
+    await createAuditLog({
+      userId: req.user!.id,
+      tenantId: req.user!.tenantId,
+      action: 'BULK_UPDATE',
+      entityType: 'CLIENT',
+      newValue: { clientIds, automationEnabled, notifyEmail, notifyWhatsapp, reminderDaysBefore },
+      ipAddress: req.ip,
+    })
+
+    res.json({ data: { updated: result.count } })
+  } catch (error) {
+    console.error('Bulk automation error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

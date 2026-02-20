@@ -31,7 +31,16 @@ interface TemplateEntry {
 
 type Templates = Record<string, Record<string, TemplateEntry>>
 
-const REMINDER_TYPES = ['DATA_COLLECTION', 'FILING_DEADLINE', 'FOLLOW_UP']
+const REMINDER_TYPES = ['SALES_DATA_COLLECTION', 'PURCHASE_DATA_COLLECTION', 'SALES_FOLLOW_UP', 'PURCHASE_FOLLOW_UP', 'GSTR1_DEADLINE', 'GSTR3B_DEADLINE']
+
+const REMINDER_TYPE_LABELS: Record<string, string> = {
+  SALES_DATA_COLLECTION: 'Sales Data Collection',
+  PURCHASE_DATA_COLLECTION: 'Purchase Data Collection',
+  SALES_FOLLOW_UP: 'Sales Follow-Up',
+  PURCHASE_FOLLOW_UP: 'Purchase Follow-Up',
+  GSTR1_DEADLINE: 'GSTR-1 Deadline',
+  GSTR3B_DEADLINE: 'GSTR-3B Deadline',
+}
 const CHANNELS = ['EMAIL', 'WHATSAPP', 'SMS']
 const PLACEHOLDERS = ['{clientName}', '{month}', '{year}', '{dueDate}', '{consultantName}']
 
@@ -57,7 +66,7 @@ function statusBadge(status: string) {
 // ---- Tab 1: Send Reminder ----
 function SendTab({ clients }: { clients: Client[] }) {
   const [formClientId, setFormClientId] = useState('')
-  const [formType, setFormType] = useState('DATA_COLLECTION')
+  const [formType, setFormType] = useState('SALES_DATA_COLLECTION')
   const [formChannel, setFormChannel] = useState('EMAIL')
   const [formMessage, setFormMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -132,9 +141,9 @@ function SendTab({ clients }: { clients: Client[] }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
             <select value={formType} onChange={(e) => setFormType(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-              <option value="DATA_COLLECTION">Data Collection</option>
-              <option value="FILING_DEADLINE">Filing Deadline</option>
-              <option value="FOLLOW_UP">Follow-up</option>
+              {REMINDER_TYPES.map((type) => (
+                <option key={type} value={type}>{REMINDER_TYPE_LABELS[type]}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -233,7 +242,7 @@ function TemplatesTab() {
         subject: edits[type]?.[channel]?.subject || undefined,
         body: edits[type]?.[channel]?.body,
       })
-      setSuccess(`${type.replace(/_/g, ' ')} / ${channel} template saved`)
+      setSuccess(`${REMINDER_TYPE_LABELS[type] || type.replace(/_/g, ' ')} / ${channel} template saved`)
       fetchTemplates()
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to save template')
@@ -271,7 +280,7 @@ function TemplatesTab() {
       {REMINDER_TYPES.map((type) => (
         <div key={type} className="bg-white shadow rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h3 className="text-sm font-semibold text-gray-800">{type.replace(/_/g, ' ')}</h3>
+            <h3 className="text-sm font-semibold text-gray-800">{REMINDER_TYPE_LABELS[type] || type.replace(/_/g, ' ')}</h3>
           </div>
           {/* Channel tabs */}
           <div className="border-b border-gray-200 px-6">
@@ -448,7 +457,7 @@ function LogsTab({ clients }: { clients: Client[] }) {
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {r.client?.tradeName || r.client?.legalName || r.clientId}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{r.reminderType.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{REMINDER_TYPE_LABELS[r.reminderType] || r.reminderType.replace(/_/g, ' ')}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{r.channel}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {r.month && r.year ? `${MONTH_NAMES[r.month - 1]} ${r.year}` : '-'}

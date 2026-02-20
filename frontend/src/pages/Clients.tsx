@@ -13,8 +13,12 @@ interface Client {
   assignedUser: { id: string; name: string; email: string } | null
   status: 'ACTIVE' | 'INACTIVE'
   automationEnabled: boolean
+  notifyEmail: boolean
+  notifyWhatsapp: boolean
   email: string
   phone: string
+  createdAt: string
+  updatedAt: string
 }
 
 interface Consultant {
@@ -42,6 +46,8 @@ interface SheetClientRow {
   contactPerson?: string
   email?: string
   phone?: string
+  address?: string
+  stateCode?: string
   filingFrequency?: string
 }
 
@@ -73,12 +79,20 @@ export default function Clients() {
   const [total, setTotal] = useState(0)
   const limit = 15
 
+  // Filters
+  const [consultantFilter, setConsultantFilter] = useState('')
+
   // Bulk select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [consultants, setConsultants] = useState<Consultant[]>([])
   const [showBulkAssign, setShowBulkAssign] = useState(false)
   const [bulkConsultantId, setBulkConsultantId] = useState('')
   const [bulkAssigning, setBulkAssigning] = useState(false)
+
+  // Bulk automation
+  const [showBulkAutomation, setShowBulkAutomation] = useState(false)
+  const [bulkAuto, setBulkAuto] = useState({ automationEnabled: true, notifyEmail: true, notifyWhatsapp: true, reminderDaysBefore: '7, 3, 1' })
+  const [bulkAutomating, setBulkAutomating] = useState(false)
 
   // Sheet Sync modal
   const [showSyncModal, setShowSyncModal] = useState(false)
@@ -95,6 +109,7 @@ export default function Clients() {
   const [preview, setPreview] = useState<PreviewData | null>(null)
   const [selectedNew, setSelectedNew] = useState<Set<string>>(new Set())
   const [selectedChanged, setSelectedChanged] = useState<Set<string>>(new Set())
+  const [syncResult, setSyncResult] = useState<{ created: number; updated: number; errors: { gstin: string; message: string }[] } | null>(null)
 
   const isAdmin = user?.role === 'ADMIN'
 
@@ -116,7 +131,7 @@ export default function Clients() {
 
   useEffect(() => {
     fetchClients()
-  }, [page, statusFilter])
+  }, [page, statusFilter, consultantFilter])
 
   useEffect(() => {
     if (isAdmin) fetchConsultants()
@@ -128,6 +143,7 @@ export default function Clients() {
       const params: Record<string, string | number> = { page, limit }
       if (search) params.search = search
       if (statusFilter) params.status = statusFilter
+      if (consultantFilter) params.assignedTo = consultantFilter
 
       const response = await api.get('/clients', { params })
       setClients(response.data.data || [])
@@ -194,12 +210,37 @@ export default function Clients() {
     }
   }
 
+  async function handleBulkAutomation() {
+    try {
+      setBulkAutomating(true)
+      const days = bulkAuto.reminderDaysBefore
+        .split(',')
+        .map(s => parseInt(s.trim(), 10))
+        .filter(n => !isNaN(n) && n > 0)
+      await api.put('/clients/bulk-automation', {
+        clientIds: Array.from(selectedIds),
+        automationEnabled: bulkAuto.automationEnabled,
+        notifyEmail: bulkAuto.notifyEmail,
+        notifyWhatsapp: bulkAuto.notifyWhatsapp,
+        reminderDaysBefore: days,
+      })
+      setShowBulkAutomation(false)
+      setSelectedIds(new Set())
+      fetchClients()
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Bulk automation update failed')
+    } finally {
+      setBulkAutomating(false)
+    }
+  }
+
   // Sheet Sync
   async function openSyncModal() {
     setShowSyncModal(true)
     setSyncError('')
     setSyncSuccess('')
     setPreview(null)
+    setSyncResult(null)
     setSyncConfigLoading(true)
     try {
       const res = await api.get('/sheet-sync/config')
@@ -278,19 +319,19 @@ export default function Clients() {
 
       const createRows = preview.new
         .filter(c => selectedNew.has(c.gstin))
-        .map(c => ({ gstin: c.gstin, legalName: c.legalName, tradeName: c.tradeName, contactPerson: c.contactPerson, email: c.email, phone: c.phone, filingFrequency: c.filingFrequency }))
+        .map(c => ({ gstin: c.gstin, legalName: c.legalName, tradeName: c.tradeName, contactPerson: c.contactPerson, email: c.email, phone: c.phone, address: c.address, stateCode: c.stateCode, filingFrequency: c.filingFrequency }))
 
       const updateRows = preview.changed
         .filter(c => selectedChanged.has(c.clientId))
         .map(c => {
           const fields: Record<string, string | undefined> = { clientId: c.clientId, gstin: c.gstin, legalName: c.legalName }
-          for (const [field, diff] of Object.entries(c.changes)) fields[field] = diff.new || undefined
+          for (const [field, diff] of Object.entries(c.changes)) fields[field] = diff.new ?? undefined
           return fields
         })
 
       const res = await api.post('/sheet-sync/apply', { create: createRows, update: updateRows })
       const summary = res.data.data.summary
-      setSyncSuccess(`Sync complete: ${summary.created} created, ${summary.updated} updated.`)
+      setSyncResult(summary)
       setPreview(null)
       fetchClients()
     } catch (err: any) {
@@ -314,14 +355,14 @@ export default function Clients() {
       {/* Toolbar */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-1 gap-3 items-center">
+          <div className="flex flex-1 gap-3 items-center flex-wrap">
             <input
               type="text"
               placeholder="Search by name, GSTIN..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 max-w-sm px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              className="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             />
             <button
               onClick={handleSearch}
@@ -341,6 +382,19 @@ export default function Clients() {
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
             </select>
+            {isAdmin && (
+              <select
+                value={consultantFilter}
+                onChange={(e) => { setConsultantFilter(e.target.value); setPage(1) }}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              >
+                <option value="">All Consultants</option>
+                {consultants.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+                <option value="unassigned">Unassigned</option>
+              </select>
+            )}
           </div>
 
           {isAdmin && (
@@ -364,13 +418,19 @@ export default function Clients() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && isAdmin && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 flex items-center gap-4">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 flex items-center gap-4 flex-wrap">
           <span className="text-sm text-indigo-800 font-medium">{selectedIds.size} client(s) selected</span>
           <button
             onClick={() => setShowBulkAssign(true)}
             className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
           >
             Assign to Consultant
+          </button>
+          <button
+            onClick={() => setShowBulkAutomation(true)}
+            className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Edit Reminders
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
@@ -413,8 +473,10 @@ export default function Clients() {
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trade Name</th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Consultant</th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Auto</th>
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Reminders</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Updated</th>
+                    <th className="sticky right-0 bg-gray-50 text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -445,12 +507,20 @@ export default function Clients() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         {client.automationEnabled ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">ON</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                            {[client.notifyEmail && 'Email', client.notifyWhatsapp && 'WA'].filter(Boolean).join(' · ') || 'ON'}
+                          </span>
                         ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                        {new Date(client.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                        {new Date(client.updatedAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
+                      </td>
+                      <td className="sticky right-0 bg-white px-6 py-4 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
                         <Link to={`/clients/${client.id}`} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
                           View
                         </Link>
@@ -523,13 +593,79 @@ export default function Clients() {
         </div>
       )}
 
+      {/* Bulk Automation Modal */}
+      {showBulkAutomation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Edit Reminders</h3>
+            <p className="text-sm text-gray-500 mb-4">Applies to {selectedIds.size} selected client(s)</p>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">Auto Reminders</label>
+                <button
+                  onClick={() => setBulkAuto(p => ({ ...p, automationEnabled: !p.automationEnabled }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${bulkAuto.automationEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${bulkAuto.automationEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              <div className={bulkAuto.automationEnabled ? '' : 'opacity-40 pointer-events-none'}>
+                <p className="text-sm font-medium text-gray-700 mb-2">Channels</p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={bulkAuto.notifyEmail} onChange={e => setBulkAuto(p => ({ ...p, notifyEmail: e.target.checked }))}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                    Email
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={bulkAuto.notifyWhatsapp} onChange={e => setBulkAuto(p => ({ ...p, notifyWhatsapp: e.target.checked }))}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                    WhatsApp
+                  </label>
+                </div>
+              </div>
+
+              <div className={bulkAuto.automationEnabled ? '' : 'opacity-40 pointer-events-none'}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Days Before Due Date</label>
+                <input
+                  type="text"
+                  value={bulkAuto.reminderDaysBefore}
+                  onChange={e => setBulkAuto(p => ({ ...p, reminderDaysBefore: e.target.value }))}
+                  placeholder="e.g. 7, 3, 1"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+                <p className="text-xs text-gray-400 mt-1">Comma-separated days, e.g. 7, 3, 1</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={handleBulkAutomation}
+                disabled={bulkAutomating}
+                className="flex-1 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {bulkAutomating ? 'Applying...' : `Apply to ${selectedIds.size} client(s)`}
+              </button>
+              <button
+                onClick={() => setShowBulkAutomation(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sheet Sync Modal */}
       {showSyncModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">Sync from Google Sheet</h2>
-              <button onClick={() => setShowSyncModal(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">
+              <button onClick={() => { setShowSyncModal(false); setSyncResult(null) }} className="text-gray-400 hover:text-gray-600 text-xl font-bold">
                 &times;
               </button>
             </div>
@@ -551,6 +687,45 @@ export default function Clients() {
               {syncConfigLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+              ) : syncResult ? (
+                /* Sync Complete result view */
+                <div className="text-center py-4 space-y-4">
+                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mx-auto">
+                    <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Sync Complete</h3>
+                  <div className="flex justify-center gap-8">
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-green-600">{syncResult.created}</p>
+                      <p className="text-sm text-gray-500">clients added</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-blue-600">{syncResult.updated}</p>
+                      <p className="text-sm text-gray-500">clients updated</p>
+                    </div>
+                  </div>
+                  {syncResult.created > 0 && (
+                    <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-2 inline-block">
+                      Auto Reminders (Email + WhatsApp) enabled by default for all new clients. Adjust per-client or via bulk edit.
+                    </p>
+                  )}
+                  {syncResult.errors.length > 0 && (
+                    <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-red-700 mb-1">{syncResult.errors.length} error(s):</p>
+                      {syncResult.errors.map((e, i) => (
+                        <p key={i} className="text-xs text-red-600">{e.gstin}: {e.message}</p>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setSyncResult(null); setShowSyncModal(false) }}
+                    className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                  >
+                    Done
+                  </button>
                 </div>
               ) : (
                 <>
@@ -674,8 +849,9 @@ export default function Clients() {
                                         setSelectedNew(next)
                                       }} className="rounded" />
                                     </td>
-                                    <td className="px-4 py-2 font-mono">{c.gstin}</td>
+                                    <td className="px-4 py-2 font-mono text-xs">{c.gstin}</td>
                                     <td className="px-4 py-2">{c.legalName}</td>
+                                    <td className="px-4 py-2 text-gray-500">{c.tradeName || '-'}</td>
                                     <td className="px-4 py-2 text-gray-500">{c.contactPerson || '-'}</td>
                                   </tr>
                                 ))}
