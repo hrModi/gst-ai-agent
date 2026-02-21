@@ -73,7 +73,7 @@ export default function Clients() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<string>('ACTIVE')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
@@ -162,6 +162,25 @@ export default function Clients() {
       setConsultants(res.data.data || [])
     } catch {
       // Non-critical
+    }
+  }
+
+  async function handleArchive(id: string, name: string) {
+    if (!window.confirm(`Archive ${name}? They will be hidden from the default view but can be restored later.`)) return
+    try {
+      await api.delete(`/clients/${id}`)
+      fetchClients()
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to archive client')
+    }
+  }
+
+  async function handleRestore(id: string) {
+    try {
+      await api.put(`/clients/${id}`, { status: 'ACTIVE' })
+      fetchClients()
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to restore client')
     }
   }
 
@@ -378,7 +397,7 @@ export default function Clients() {
               }}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             >
-              <option value="">All Status</option>
+              <option value="">All (incl. Archived)</option>
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
             </select>
@@ -521,9 +540,27 @@ export default function Clients() {
                         {new Date(client.updatedAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
                       </td>
                       <td className="sticky right-0 bg-white px-6 py-4 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
-                        <Link to={`/clients/${client.id}`} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                          View
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          <Link to={`/clients/${client.id}`} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                            View
+                          </Link>
+                          {isAdmin && client.status === 'ACTIVE' && (
+                            <button
+                              onClick={() => handleArchive(client.id, client.tradeName || client.legalName)}
+                              className="text-gray-400 hover:text-red-600 text-sm font-medium transition-colors"
+                            >
+                              Archive
+                            </button>
+                          )}
+                          {isAdmin && client.status === 'INACTIVE' && (
+                            <button
+                              onClick={() => handleRestore(client.id)}
+                              className="text-gray-400 hover:text-green-600 text-sm font-medium transition-colors"
+                            >
+                              Restore
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

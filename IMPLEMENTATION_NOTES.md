@@ -44,10 +44,13 @@
 
 **Frontend (Clients.tsx) features:**
 - Search + Status + Consultant filter (admin only; includes "Unassigned" option)
+- Status filter default: `'ACTIVE'` — only active clients shown by default; select "All (incl. Archived)" to see all
 - Checkbox rows → bulk action bar with "Assign to Consultant" and "Edit Reminders" modals
 - Reminders column: shows `"Email · WA"` / `"Email"` / `"WA"` / `"–"` based on `notifyEmail`/`notifyWhatsapp`/`automationEnabled`
 - Created + Last Updated columns (date+time, 24h, en-IN locale)
 - Actions column is `sticky right-0` (frozen on horizontal scroll)
+- **Archive** (admin): calls `DELETE /api/clients/:id` with confirm dialog → sets INACTIVE, disappears from default view
+- **Restore** (admin): shown on INACTIVE clients; calls `PUT /api/clients/:id { status: 'ACTIVE' }`
 - Sheet Sync modal embedded (not a separate page — `/sheet-sync` route removed)
 
 ---
@@ -98,7 +101,7 @@
 ### Reminders (`backend/src/routes/reminders.ts`, `frontend/src/pages/Reminders.tsx`)
 
 **4 tabs:**
-1. **Send** — select client + type + channel + optional custom message; shows template preview
+1. **Send** — select client + type + channel; shows template preview; always uses template (no custom message override)
 2. **Templates** (admin) — accordion per type, EMAIL/WHATSAPP/SMS sub-tabs, subject + body editors
 3. **Schedule** — upcoming automated reminder events for current month (calls GET /api/reminders/schedule)
 4. **Logs** — filterable table (client, channel, status, month, year); expandable rows; "Auto" badge for Yaksh-sent reminders
@@ -198,6 +201,28 @@
 - `/api/documents` — file upload/download via S3 signed URLs
 - `/api/audit-logs` — read-only audit trail
 - `/api/agent-activity` — Yaksh agent activity log
+
+---
+
+### Navigation & Routing (`frontend/src/App.tsx`, `frontend/src/components/layout/Sidebar.tsx`)
+
+**Current routes:**
+- `/dashboard`, `/clients`, `/clients/new`, `/clients/:id`, `/clients/:id/edit`
+- `/filing`, `/invoices/upload`, `/invoices/:clientId`, `/json-generator`
+- `/reminders`, `/documents`, `/settings` (admin only)
+
+**Coming Soon routes (ComingSoon.tsx placeholder):**
+- `/inbox` — Inbox Monitor (Phase 1D)
+- `/reconciliation` — GSTR-2B Reconciliation (Phase 1G)
+- `/gstr3b` — GSTR-3B Preparation (Phase 1H)
+- `/yaksh` — Yaksh Activity Dashboard (Phase 1I)
+
+**`frontend/src/pages/ComingSoon.tsx`** — shared placeholder component; takes `title`, `description`, `phase` props; shows clock icon + description + phase badge.
+
+**Sidebar sections:**
+1. Main nav (all users): Dashboard, Clients, Filing Status, Upload Invoices, JSON Generator, Reminders, Documents
+2. Admin only: Settings
+3. Upcoming (all users): Inbox Monitor, Reconciliation, GSTR-3B, Yaksh — each shows phase tag; dimmed style
 
 ---
 

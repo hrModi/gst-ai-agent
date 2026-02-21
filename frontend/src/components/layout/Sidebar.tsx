@@ -15,6 +15,13 @@ const adminItems = [
   { to: '/settings', label: 'Settings', icon: '\u2699' },
 ]
 
+const upcomingItems = [
+  { to: '/inbox', label: 'Inbox Monitor', icon: '\u2709', phase: '1D' },
+  { to: '/reconciliation', label: 'Reconciliation', icon: '\u21C4', phase: '1G' },
+  { to: '/gstr3b', label: 'GSTR-3B', icon: '\u2630', phase: '1H' },
+  { to: '/yaksh', label: 'Yaksh', icon: '\u2605', phase: '1I' },
+]
+
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
@@ -65,6 +72,31 @@ export default function Sidebar() {
               </li>
             ))}
         </ul>
+
+        {/* Upcoming features */}
+        <div className="mt-4 px-3">
+          <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider px-3 mb-1">Upcoming</p>
+          <ul className="space-y-1">
+            {upcomingItems.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-indigo-800 text-indigo-200'
+                        : 'text-indigo-400 hover:bg-indigo-800 hover:text-indigo-200'
+                    }`
+                  }
+                >
+                  <span className="text-base w-5 text-center opacity-60">{item.icon}</span>
+                  <span className="flex-1">{item.label}</span>
+                  <span className="text-xs text-indigo-500 font-mono">{item.phase}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
       </nav>
 
       <div className="p-4 border-t border-indigo-800">

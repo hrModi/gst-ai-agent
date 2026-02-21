@@ -81,7 +81,6 @@ function SendTab({ clients }: { clients: Client[] }) {
   const [formClientId, setFormClientId] = useState('')
   const [formType, setFormType] = useState('SALES_DATA_COLLECTION')
   const [formChannel, setFormChannel] = useState('EMAIL')
-  const [formMessage, setFormMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -118,13 +117,11 @@ function SendTab({ clients }: { clients: Client[] }) {
         clientId: formClientId,
         reminderType: formType,
         channel: formChannel,
-        message: formMessage || undefined,
         month: now.getMonth() + 1,
         year: now.getFullYear(),
       })
       setSuccess('Reminder sent successfully')
       setFormClientId('')
-      setFormMessage('')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to send reminder')
     } finally {
@@ -139,7 +136,7 @@ function SendTab({ clients }: { clients: Client[] }) {
 
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Send Reminder</h2>
-        <form onSubmit={handleSend} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <form onSubmit={handleSend} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
             <select value={formClientId} onChange={(e) => setFormClientId(e.target.value)}
@@ -167,12 +164,6 @@ function SendTab({ clients }: { clients: Client[] }) {
               <option value="WHATSAPP">WhatsApp</option>
               <option value="SMS">SMS</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Custom Message (optional)</label>
-            <input type="text" value={formMessage} onChange={(e) => setFormMessage(e.target.value)}
-              placeholder="Override template..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="flex items-end">
             <button type="submit" disabled={sending}
