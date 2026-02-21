@@ -217,12 +217,14 @@
 - `/gstr3b` — GSTR-3B Preparation (Phase 1H)
 - `/yaksh` — Yaksh Activity Dashboard (Phase 1I)
 
-**`frontend/src/pages/ComingSoon.tsx`** — shared placeholder component; takes `title`, `description`, `phase` props; shows clock icon + description + phase badge.
+**`frontend/src/pages/ComingSoon.tsx`** — shared placeholder component; takes `title`, `description`, `phase` props; shows clock icon + description + phase badge. Used by existing pages that are not yet functional.
 
 **Sidebar sections:**
-1. Main nav (all users): Dashboard, Clients, Filing Status, Upload Invoices, JSON Generator, Reminders, Documents
+1. Main nav (all users): Dashboard ⊞, Clients, Filing Status, Upload Invoices, JSON Generator, Reminders, Documents
 2. Admin only: Settings
-3. Upcoming (all users): Inbox Monitor, Reconciliation, GSTR-3B, Yaksh — each shows phase tag; dimmed style
+
+**Pages showing Coming Soon (existing routes, not functional yet):**
+- `/documents` → ComingSoon (Phase 1E) — Documents page has no upload/download; backend S3 is stubbed. Original UI code preserved in Documents.tsx behind `COMING_SOON = true` flag.
 
 ---
 

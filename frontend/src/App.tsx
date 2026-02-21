@@ -13,7 +13,6 @@ import Reminders from './pages/Reminders'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
 import EditClient from './pages/EditClient'
-import ComingSoon from './pages/ComingSoon'
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
@@ -141,10 +140,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/inbox" element={<ProtectedRoute><ComingSoon title="Inbox Monitor" description="Yaksh monitors a dedicated Gmail inbox, detects client data submissions, and matches them to the right client automatically." phase="1D" /></ProtectedRoute>} />
-      <Route path="/reconciliation" element={<ProtectedRoute><ComingSoon title="GSTR-2B Reconciliation" description="Automatically reconcile your GSTR-1 data against GSTR-2B to identify mismatches and compute eligible ITC." phase="1G" /></ProtectedRoute>} />
-      <Route path="/gstr3b" element={<ProtectedRoute><ComingSoon title="GSTR-3B Preparation" description="Yaksh computes your GSTR-3B from GSTR-1 and GSTR-2B data — NIL, payment, or credit returns identified automatically." phase="1H" /></ProtectedRoute>} />
-      <Route path="/yaksh" element={<ProtectedRoute><ComingSoon title="Yaksh Activity" description="Full visibility into everything Yaksh is doing: reminders sent, emails processed, validations run, and JSONs generated." phase="1I" /></ProtectedRoute>} />
     </Routes>
   )
 }
