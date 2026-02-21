@@ -23,6 +23,7 @@ import sheetSyncRoutes from './routes/sheet-sync'
 import agentActivityRoutes from './routes/agent-activity'
 import systemSettingsRoutes from './routes/system-settings'
 import reminderTemplateRoutes from './routes/reminder-templates'
+import { startScheduler } from './services/scheduler'
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -62,6 +63,7 @@ app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
+  startScheduler()
 })
 
 export default app

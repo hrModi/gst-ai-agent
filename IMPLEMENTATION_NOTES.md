@@ -1,5 +1,21 @@
 # GST Filing System — Implementation Notes
 
+## Phase Progress (IMPLEMENTATION_PLAN.md)
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| 1A | ✅ Complete | Google Sheets OAuth sync modal in /clients. Backend: sheet-sync.ts + google-sheets.ts. DB: SheetSyncConfig. |
+| 1B | ✅ Complete | Per-client automation fields on Client model. FilingStatus.stage + stageUpdatedAt. YakshActivity table. |
+| 1C | ✅ Complete | node-cron scheduler. Daily reminder job (9 AM IST). Monthly status-init job (1st). isAuto field on Reminder. Schedule tab in Reminders.tsx. |
+| 1D | ⏳ Pending | Gmail inbox poller. InboxMessage model. InboxMonitor.tsx page. |
+| 1E | ⏳ Pending | Auto pipeline: email → parse → validate → JSON → notify. pipeline.ts + notification.ts. |
+| 1F | ⏳ Pending | Claude AI (Yaksh intelligence). yaksh.ts service. Anthropic SDK. |
+| 1G | ⏳ Pending | GSTR-2B upload + reconciliation. 2 new DB tables. Reconciliation.tsx page. |
+| 1H | ⏳ Pending | GSTR-3B computation. NIL/PAYMENT/CREDIT classification. Gstr3bView.tsx. |
+| 1I | ⏳ Pending | Yaksh Dashboard page (/yaksh). Full activity monitor. |
+
+---
+
 ## Implemented Features (complete)
 
 ---
@@ -81,12 +97,18 @@
 
 ### Reminders (`backend/src/routes/reminders.ts`, `frontend/src/pages/Reminders.tsx`)
 
-**3 tabs:**
+**4 tabs:**
 1. **Send** — select client + type + channel + optional custom message; shows template preview
 2. **Templates** (admin) — accordion per type, EMAIL/WHATSAPP/SMS sub-tabs, subject + body editors
-3. **Logs** — filterable table (client, channel, status, month, year); expandable rows
+3. **Schedule** — upcoming automated reminder events for current month (calls GET /api/reminders/schedule)
+4. **Logs** — filterable table (client, channel, status, month, year); expandable rows; "Auto" badge for Yaksh-sent reminders
 
-**6 Reminder Types (automation trigger identifiers for future Yaksh agent):**
+**Endpoints:**
+- POST `/api/reminders` — manual send; resolves template; sends via channel; creates Reminder record with `isAuto: false`
+- GET `/api/reminders` — list with filters (clientId, month, year, status, channel)
+- GET `/api/reminders/schedule` — upcoming automated events for current month (all automationEnabled clients)
+
+**6 Reminder Types (automation trigger identifiers):**
 | Key | Label |
 |-----|-------|
 | `SALES_DATA_COLLECTION` | Sales Data Collection |
@@ -102,11 +124,37 @@
 - Placeholder substitution: `{clientName}`, `{month}`, `{year}`, `{dueDate}`, `{consultantName}`
 - Admin can override any template via Templates tab; `isCustom: true` flag shown in preview
 
+**isAuto field on Reminder:**
+- `isAuto: true` — set by Yaksh scheduler jobs (reminder-job.ts)
+- `isAuto: false` — default, set on manual sends from Send tab
+
 ---
 
 ### Reminder Templates API (`backend/src/routes/reminder-templates.ts`)
 - GET `/api/reminder-templates` (admin) — merges DB templates with defaults, returns `isCustom` flag
 - PUT `/api/reminder-templates/:reminderType/:channel` (admin) — upserts template
+
+---
+
+### Scheduler (1C — `backend/src/services/scheduler.ts`)
+- `startScheduler()` called inside `app.listen()` in `index.ts`
+- **Daily job** (9 AM IST): `reminder-job.ts` — sends automated reminders to clients due soon
+- **Monthly job** (1st of month, midnight IST): `status-init-job.ts` — creates FilingStatus records for all active clients
+
+**reminder-job.ts logic:**
+1. For each tenant: get all ACTIVE clients with `automationEnabled = true`
+2. Calculate `daysUntilDue = client.gstr1DueDay - today's day`
+3. If `daysUntilDue` is in `client.reminderDaysBefore` → proceed
+4. Check FilingStatus.stage — skip if `DATA_RECEIVED` or later
+5. Deduplicate: skip if reminder already sent today for this client/month
+6. Determine type: first-ever = `SALES_DATA_COLLECTION`, subsequent = `SALES_FOLLOW_UP`
+7. Send via notifyEmail/notifyWhatsapp channels; create Reminder with `isAuto: true`
+8. First reminder: upsert FilingStatus with `stage: REMINDER_SENT`
+9. Log YakshActivity with `activityType: REMINDER_SENT`
+
+**status-init-job.ts logic:**
+- Upserts FilingStatus for all ACTIVE clients for new month with `stage: NOT_STARTED`
+- Uses `create + update: {}` so existing records are never overwritten
 
 ---
 
@@ -133,7 +181,7 @@
 
 ### Filing Status (`backend/src/routes/filing-status.ts`)
 - Standard CRUD for filing status per client/month/year
-- Stages: NOT_STARTED → DATA_RECEIVED → VALIDATION_ERRORS → JSON_GENERATED → FILED / NIL_RETURN
+- Stages: NOT_STARTED → REMINDER_SENT → DATA_RECEIVED → VALIDATING → VALIDATION_FAILED → VALIDATED → JSON_GENERATED → READY_TO_FILE → FILED / NIL_RETURN
 
 ---
 
@@ -149,7 +197,56 @@
 - `/api/filed-returns` — ARN entry and acknowledgment tracking
 - `/api/documents` — file upload/download via S3 signed URLs
 - `/api/audit-logs` — read-only audit trail
-- `/api/agent-activity` — Yaksh agent activity log (future use)
+- `/api/agent-activity` — Yaksh agent activity log
+
+---
+
+## Key Service Facts (for 1D+ implementation)
+
+### email.ts (`backend/src/services/email.ts`)
+- `sendEmail(to, subject, body)` → `{ success: boolean, messageId: string }`
+- AWS SES via `@aws-sdk/client-ses` (dynamic import)
+- Falls back gracefully (console.warn, returns `{ success: false }`) if `AWS_ACCESS_KEY_ID` not set
+- From address: `AWS_SES_FROM_EMAIL` env var (default: noreply@abcca.com)
+- Region: `AWS_SES_REGION` || `AWS_REGION` || `ap-south-1`
+
+### whatsapp.ts (`backend/src/services/whatsapp.ts`)
+- `sendWhatsApp(phone, message)` → `{ success: boolean }`
+- Gupshup API: POST `https://api.gupshup.io/wa/api/v1/msg`
+- Falls back gracefully (console.warn, returns `{ success: false }`) if `GUPSHUP_API_KEY` not set
+- Source number: `GUPSHUP_PHONE_NUMBER` env var; src.name: `ABCCAAssociates`
+
+### index.ts (`backend/src/index.ts`)
+- Standard Express + CORS setup. `startScheduler()` called inside `app.listen()` callback.
+- All routes registered under `/api/*`
+
+### reminders.ts template pattern
+```ts
+// DB template → DEFAULT_TEMPLATES fallback → applyPlaceholders
+const dbTemplate = await prisma.reminderTemplate.findFirst({ where: { tenantId, reminderType, channel, isActive: true } })
+const templateDefaults = DEFAULT_TEMPLATES[reminderType]?.[channel]
+const body = dbTemplate?.body ?? templateDefaults?.body ?? 'Reminder: Please submit your GST data.'
+const subject = dbTemplate?.subject ?? templateDefaults?.subject ?? 'GST Filing Reminder'
+const resolved = applyPlaceholders(body, { clientName, month, year, dueDate, consultantName })
+```
+
+### FilingStatus.stage values (ordered)
+`NOT_STARTED` → `REMINDER_SENT` → `DATA_RECEIVED` → `VALIDATING` → `VALIDATION_FAILED` → `VALIDATED` → `JSON_GENERATED` → `READY_TO_FILE` → `FILED`
+
+### YakshActivity model
+- Fields: `tenantId`, `clientId` (nullable), `activityType`, `description`, `metadata` (Json), `createdAt`
+- `activityType` values used: `REMINDER_SENT`, `EMAIL_RECEIVED`, `VALIDATION_RUN`, `JSON_GENERATED`, `NOTIFICATION_SENT`, `SHEET_SYNC`, `ERROR`
+
+### Client automation fields (all on Client model)
+- `automationEnabled Boolean @default(true)`
+- `notifyEmail Boolean @default(true)`
+- `notifyWhatsapp Boolean @default(true)`
+- `gstr1DueDay Int @default(11)` — day of month GSTR-1 is due
+- `gstr3bDueDay Int @default(20)`
+- `reminderDaysBefore Int[] @default([7, 3, 1])` — send reminders X days before due date
+
+### Reminder model — isAuto field (added in 1C)
+- `isAuto Boolean @default(false) @map("is_auto")` — true when sent by Yaksh scheduler
 
 ---
 
@@ -161,9 +258,12 @@
 - **Google OAuth state param**: `tenantId` is passed as `state` through the OAuth flow since the callback endpoint has no auth middleware
 - **Frontend route `/sheet-sync` removed** — Sheet Sync is now a modal inside `/clients`; OAuth redirects to `/clients?connected=true`
 - **Consultant filter**: `assignedTo=unassigned` is a special value → `WHERE assigned_to IS NULL`
+- **IST timezone for cron**: Use `{ timezone: 'Asia/Kolkata' }` option in node-cron. IST = UTC+5:30. 9 AM IST = `30 3 * * *` in UTC cron.
+- **Reminder deduplication**: Check `createdAt >= startOfToday` in IST (use `new Date()` in IST context or convert) before sending to avoid double-sends if job runs twice.
 
 ---
 
 ## Migrations Applied
 1. `20260220194015_add_reminder_templates` — adds `reminder_templates` table
 2. `20260220205222_update_automation_defaults` — sets `automation_enabled` and `notify_whatsapp` defaults to `true`
+3. `20260221_add_is_auto_to_reminders` — adds `is_auto` boolean column to `reminders` table

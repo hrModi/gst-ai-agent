@@ -249,6 +249,7 @@ model Reminder {
   sentAt          DateTime?      @map("sent_at")
   month           Int?
   year            Int?
+  isAuto          Boolean        @default(false) @map("is_auto")
   createdAt       DateTime       @default(now()) @map("created_at")
 
   client Client @relation(fields: [clientId], references: [id])

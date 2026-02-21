@@ -135,6 +135,94 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
 })
 
+// GET /api/reminders/schedule — upcoming automated reminder events for current month
+router.get('/schedule', async (req: AuthRequest, res: Response) => {
+  try {
+    const now = new Date()
+    const istOffset = 5.5 * 60 * 60 * 1000
+    const istNow = new Date(now.getTime() + istOffset)
+    const todayDay = istNow.getUTCDate()
+    const currentMonth = istNow.getUTCMonth() + 1
+    const currentYear = istNow.getUTCFullYear()
+
+    const clientWhere: any = {
+      tenantId: req.user!.tenantId,
+      status: 'ACTIVE',
+      automationEnabled: true,
+    }
+    if (req.user!.role === 'CONSULTANT') {
+      clientWhere.assignedTo = req.user!.id
+    }
+
+    const clients = await prisma.client.findMany({
+      where: clientWhere,
+      select: {
+        id: true,
+        legalName: true,
+        tradeName: true,
+        gstr1DueDay: true,
+        reminderDaysBefore: true,
+        notifyEmail: true,
+        notifyWhatsapp: true,
+        email: true,
+        phone: true,
+        filingStatus: {
+          where: { month: currentMonth, year: currentYear },
+          select: { stage: true },
+        },
+      },
+    })
+
+    const DATA_RECEIVED_STAGES = new Set([
+      'DATA_RECEIVED', 'VALIDATING', 'VALIDATION_FAILED', 'VALIDATED',
+      'JSON_GENERATED', 'READY_TO_FILE', 'FILED',
+    ])
+
+    const schedule: any[] = []
+
+    for (const client of clients) {
+      const currentStage = client.filingStatus[0]?.stage
+      if (currentStage && DATA_RECEIVED_STAGES.has(currentStage)) continue
+
+      const channels: string[] = []
+      if (client.notifyEmail && client.email) channels.push('EMAIL')
+      if (client.notifyWhatsapp && client.phone) channels.push('WHATSAPP')
+      if (channels.length === 0) continue
+
+      for (const daysBefore of client.reminderDaysBefore) {
+        const daysUntilDue = client.gstr1DueDay - todayDay
+        const targetDay = client.gstr1DueDay - daysBefore
+
+        // Only include future or today's events
+        if (targetDay < todayDay) continue
+
+        // Build scheduled date string for current month
+        const scheduledDate = new Date(Date.UTC(currentYear, currentMonth - 1, targetDay))
+
+        schedule.push({
+          clientId: client.id,
+          clientName: client.legalName,
+          tradeName: client.tradeName,
+          reminderType: daysUntilDue === 0 ? 'GSTR1_DEADLINE' : 'SALES_DATA_COLLECTION',
+          channels,
+          scheduledDate: scheduledDate.toISOString().split('T')[0],
+          daysUntilDue: targetDay - todayDay,
+          gstr1DueDay: client.gstr1DueDay,
+          currentStage: currentStage || 'NOT_STARTED',
+        })
+      }
+    }
+
+    // Sort by scheduledDate ascending
+    schedule.sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))
+
+    res.json({ data: schedule, month: currentMonth, year: currentYear })
+  } catch (error) {
+    console.error('Get reminder schedule error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // GET /api/reminders
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {

@@ -19,8 +19,21 @@ interface Reminder {
   sentAt: string | null
   month: number | null
   year: number | null
+  isAuto: boolean
   createdAt: string
   client?: { legalName: string; tradeName: string | null }
+}
+
+interface ScheduleEvent {
+  clientId: string
+  clientName: string
+  tradeName: string | null
+  reminderType: string
+  channels: string[]
+  scheduledDate: string
+  daysUntilDue: number
+  gstr1DueDay: number
+  currentStage: string
 }
 
 interface TemplateEntry {
@@ -340,7 +353,107 @@ function TemplatesTab() {
   )
 }
 
-// ---- Tab 3: Logs ----
+// ---- Tab 3: Schedule ----
+function ScheduleTab() {
+  const [schedule, setSchedule] = useState<ScheduleEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [meta, setMeta] = useState<{ month: number; year: number } | null>(null)
+
+  useEffect(() => {
+    fetchSchedule()
+  }, [])
+
+  async function fetchSchedule() {
+    try {
+      setLoading(true)
+      const res = await api.get('/reminders/schedule')
+      setSchedule(res.data.data || [])
+      setMeta({ month: res.data.month, year: res.data.year })
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const FULL_MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">
+              Upcoming Automated Reminders
+              {meta && <span className="ml-2 text-sm font-normal text-gray-500">— {FULL_MONTH_NAMES[meta.month - 1]} {meta.year}</span>}
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">Yaksh sends these automatically each day at 9 AM IST for clients with automation enabled</p>
+          </div>
+          <button onClick={fetchSchedule} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Refresh</button>
+        </div>
+
+        {loading ? (
+          <div className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          </div>
+        ) : schedule.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-gray-500 text-sm">No upcoming automated reminders scheduled for this month.</p>
+            <p className="text-gray-400 text-xs mt-1">Reminders are sent for clients with automation enabled and data not yet received.</p>
+          </div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Channels</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scheduled Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Until Due</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current Stage</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {schedule.map((event, idx) => (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {event.tradeName || event.clientName}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {REMINDER_TYPE_LABELS[event.reminderType] || event.reminderType.replace(/_/g, ' ')}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    <div className="flex gap-1 flex-wrap">
+                      {event.channels.map(ch => (
+                        <span key={ch} className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">{ch}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                    {new Date(event.scheduledDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`font-medium ${event.daysUntilDue <= 3 ? 'text-red-600' : event.daysUntilDue <= 7 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {event.daysUntilDue === 0 ? 'Today' : `${event.daysUntilDue}d`}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {event.currentStage.replace(/_/g, ' ')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---- Tab 4: Logs ----
 function LogsTab({ clients }: { clients: Client[] }) {
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [loading, setLoading] = useState(true)
@@ -457,7 +570,14 @@ function LogsTab({ clients }: { clients: Client[] }) {
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {r.client?.tradeName || r.client?.legalName || r.clientId}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{REMINDER_TYPE_LABELS[r.reminderType] || r.reminderType.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        {REMINDER_TYPE_LABELS[r.reminderType] || r.reminderType.replace(/_/g, ' ')}
+                        {r.isAuto && (
+                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">Auto</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{r.channel}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {r.month && r.year ? `${MONTH_NAMES[r.month - 1]} ${r.year}` : '-'}
@@ -488,7 +608,7 @@ function LogsTab({ clients }: { clients: Client[] }) {
 // ---- Main Reminders Page ----
 export default function Reminders() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState<'send' | 'templates' | 'logs'>('send')
+  const [activeTab, setActiveTab] = useState<'send' | 'templates' | 'schedule' | 'logs'>('send')
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
 
@@ -513,8 +633,9 @@ export default function Reminders() {
   const tabs = [
     { id: 'send', label: 'Send Reminder' },
     ...(isAdmin ? [{ id: 'templates', label: 'Message Templates' }] : []),
+    { id: 'schedule', label: 'Schedule' },
     { id: 'logs', label: 'Reminder Logs' },
-  ] as { id: 'send' | 'templates' | 'logs'; label: string }[]
+  ] as { id: 'send' | 'templates' | 'schedule' | 'logs'; label: string }[]
 
   return (
     <DashboardLayout title="Reminders">
@@ -545,6 +666,7 @@ export default function Reminders() {
         <>
           {activeTab === 'send' && <SendTab clients={clients} />}
           {activeTab === 'templates' && isAdmin && <TemplatesTab />}
+          {activeTab === 'schedule' && <ScheduleTab />}
           {activeTab === 'logs' && <LogsTab clients={clients} />}
         </>
       )}
