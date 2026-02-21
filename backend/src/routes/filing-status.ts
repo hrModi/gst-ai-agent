@@ -54,6 +54,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         tradeName: client.tradeName,
         assignedUser: client.assignedUser,
         filingStatusId: status?.id || null,
+        stage: status?.stage || 'NOT_STARTED',
         gstr1Status: status?.gstr1Status || 'NOT_STARTED',
         gstr3bStatus: status?.gstr3bStatus || 'NOT_STARTED',
         dataReceived: status?.dataReceived || false,

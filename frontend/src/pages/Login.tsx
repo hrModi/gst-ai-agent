@@ -43,8 +43,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">GST Filing System</h1>
-          <p className="text-indigo-200 mt-2">Sign in to manage your GST filings</p>
+          <h1 className="text-3xl font-bold text-white">GST Pilot</h1>
+          <p className="text-indigo-200 mt-2">Manage GST filings for your firm</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-2xl p-8">
@@ -103,7 +103,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-indigo-200 text-sm mt-6">
-          ABC CA & Associates - GST Filing Management
+          Powered by VH Associates
         </p>
       </div>
     </div>

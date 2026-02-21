@@ -126,10 +126,13 @@ export default function Dashboard() {
         </div>
       ) : data ? (
         <>
-          {/* Period header */}
-          <p className="text-sm text-gray-500 mb-5">
-            Period: <span className="font-medium text-gray-700">{MONTH_NAMES[data.currentPeriod.month - 1]} {data.currentPeriod.year}</span>
-          </p>
+          {/* Firm + period header */}
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-gray-800">{user?.tenant?.name}</h2>
+            <p className="text-sm text-gray-500">
+              Period: <span className="font-medium text-gray-700">{MONTH_NAMES[data.currentPeriod.month - 1]} {data.currentPeriod.year}</span>
+            </p>
+          </div>
 
           {/* Stat Cards */}
           <div className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-5 mb-8`}>

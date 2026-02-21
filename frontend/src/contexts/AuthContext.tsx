@@ -7,6 +7,7 @@ export interface User {
   email: string
   name: string
   role: 'ADMIN' | 'CONSULTANT'
+  tenant: { id: string; name: string }
 }
 
 interface AuthContextType {

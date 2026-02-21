@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/layout/DashboardLayout'
+import { useAuth } from '../contexts/AuthContext'
 import api from '../lib/api'
 
 interface FilingStatusRow {
@@ -7,6 +8,7 @@ interface FilingStatusRow {
   legalName: string
   tradeName: string | null
   gstin: string
+  assignedUser: { id: string; name: string } | null
   dataReceived: boolean
   gstr1Status: string
   gstr3bStatus: string
@@ -64,12 +66,22 @@ function getStageBadge(stage: string) {
 }
 
 export default function Filing() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
+
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
   const [filings, setFilings] = useState<FilingStatusRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // Filters
+  const [search, setSearch] = useState('')
+  const [stageFilter, setStageFilter] = useState('')
+  const [dataReceivedFilter, setDataReceivedFilter] = useState('')
+  const [consultantFilter, setConsultantFilter] = useState('')
+  const [consultants, setConsultants] = useState<{ id: string; name: string }[]>([])
 
   // ARN modal state
   const [arnModal, setArnModal] = useState<{
@@ -86,6 +98,37 @@ export default function Filing() {
   useEffect(() => {
     fetchFilings()
   }, [month, year])
+
+  useEffect(() => {
+    if (isAdmin) {
+      api.get('/users').then(res => setConsultants(res.data.data || [])).catch(() => {})
+    }
+  }, [isAdmin])
+
+  const filteredFilings = filings.filter((f) => {
+    if (search) {
+      const q = search.toLowerCase()
+      if (
+        !f.legalName.toLowerCase().includes(q) &&
+        !(f.tradeName?.toLowerCase().includes(q)) &&
+        !f.gstin.toLowerCase().includes(q)
+      ) return false
+    }
+    if (stageFilter && f.stage !== stageFilter) return false
+    if (dataReceivedFilter === 'yes' && !f.dataReceived) return false
+    if (dataReceivedFilter === 'no' && f.dataReceived) return false
+    if (consultantFilter && f.assignedUser?.id !== consultantFilter) return false
+    return true
+  })
+
+  const hasActiveFilters = !!(search || stageFilter || dataReceivedFilter || consultantFilter)
+
+  function clearFilters() {
+    setSearch('')
+    setStageFilter('')
+    setDataReceivedFilter('')
+    setConsultantFilter('')
+  }
 
   async function fetchFilings() {
     try {
@@ -192,6 +235,64 @@ export default function Filing() {
         </div>
       </div>
 
+      {/* Filter Toolbar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="flex flex-wrap gap-3 items-center">
+          <input
+            type="text"
+            placeholder="Search by name, GSTIN..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+          />
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+          >
+            <option value="">All Stages</option>
+            <option value="NOT_STARTED">Not Started</option>
+            <option value="REMINDER_SENT">Reminder Sent</option>
+            <option value="DATA_RECEIVED">Data Received</option>
+            <option value="VALIDATING">Validating</option>
+            <option value="VALIDATION_FAILED">Validation Failed</option>
+            <option value="VALIDATED">Validated</option>
+            <option value="JSON_GENERATED">JSON Generated</option>
+            <option value="READY_TO_FILE">Ready to File</option>
+            <option value="FILED">Filed</option>
+          </select>
+          <select
+            value={dataReceivedFilter}
+            onChange={(e) => setDataReceivedFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+          >
+            <option value="">Data Received: All</option>
+            <option value="yes">Data Received: Yes</option>
+            <option value="no">Data Received: No</option>
+          </select>
+          {isAdmin && (
+            <select
+              value={consultantFilter}
+              onChange={(e) => setConsultantFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            >
+              <option value="">All Consultants</option>
+              {consultants.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-800 font-medium transition-colors"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Filing Status Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
@@ -204,6 +305,7 @@ export default function Filing() {
             <p className="text-sm mt-1">No clients found for this period</p>
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -226,13 +328,22 @@ export default function Filing() {
                   <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     GSTR-3B Status
                   </th>
-                  <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="sticky right-0 bg-gray-50 text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filings.map((filing) => (
+                {filteredFilings.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12 text-gray-500 text-sm">
+                      No clients match the current filters.{' '}
+                      <button onClick={clearFilters} className="text-indigo-600 hover:text-indigo-800 font-medium">
+                        Clear filters
+                      </button>
+                    </td>
+                  </tr>
+                ) : filteredFilings.map((filing) => (
                   <tr key={filing.clientId} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {(filing.tradeName || filing.legalName)}
@@ -242,14 +353,14 @@ export default function Filing() {
                         {filing.gstin}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStageBadge(filing.stage)}`}
                       >
                         {formatStatusLabel(filing.stage || 'NOT_STARTED')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
                       {filing.dataReceived ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           Yes
@@ -260,7 +371,7 @@ export default function Filing() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(
                           filing.gstr1Status
@@ -269,7 +380,7 @@ export default function Filing() {
                         {formatStatusLabel(filing.gstr1Status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(
                           filing.gstr3bStatus
@@ -278,7 +389,7 @@ export default function Filing() {
                         {formatStatusLabel(filing.gstr3bStatus)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="sticky right-0 bg-white px-6 py-4 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
                       <div className="flex items-center justify-center gap-2">
                         {filing.gstr1Status !== 'filed' && (
                           <button
@@ -303,6 +414,10 @@ export default function Filing() {
               </tbody>
             </table>
           </div>
+          <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 text-sm text-gray-500">
+            Showing {filteredFilings.length} of {filings.length} clients
+          </div>
+          </>
         )}
       </div>
 

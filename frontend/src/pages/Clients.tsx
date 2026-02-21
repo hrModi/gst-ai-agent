@@ -517,14 +517,14 @@ export default function Clients() {
                       <td className="px-6 py-4 text-sm text-gray-900">{client.legalName}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{client.tradeName || '-'}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{client.assignedUser?.name || '-'}</td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           client.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                         }`}>
                           {client.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center whitespace-nowrap">
                         {client.automationEnabled ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
                             {[client.notifyEmail && 'Email', client.notifyWhatsapp && 'WA'].filter(Boolean).join(' · ') || 'ON'}

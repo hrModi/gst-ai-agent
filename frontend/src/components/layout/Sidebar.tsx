@@ -23,8 +23,8 @@ export default function Sidebar() {
   return (
     <div className="w-64 bg-indigo-900 text-white flex flex-col min-h-screen">
       <div className="p-5 border-b border-indigo-800">
-        <h1 className="text-xl font-bold tracking-wide">GST Filing System</h1>
-        <p className="text-indigo-300 text-xs mt-1">CA Firm Management</p>
+        <h1 className="text-xl font-bold tracking-wide">{user?.tenant?.name || 'GST Pilot'}</h1>
+        <p className="text-indigo-300 text-xs mt-1">GST Filing Management</p>
       </div>
 
       <nav className="flex-1 py-4 overflow-y-auto">
