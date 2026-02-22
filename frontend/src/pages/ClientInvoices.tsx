@@ -102,7 +102,7 @@ export default function ClientInvoices() {
   }
 
   return (
-    <DashboardLayout title={clientName ? `Invoices - ${clientName}` : 'Client Invoices'}>
+    <DashboardLayout title={clientName ? `Sales Data - ${clientName}` : 'Sales Data'}>
       <div className="space-y-6">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
@@ -151,13 +151,13 @@ export default function ClientInvoices() {
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-3 text-gray-500">Loading invoices...</p>
+            <p className="mt-3 text-gray-500">Loading sales data...</p>
           </div>
         ) : invoices.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow">
-            <p className="text-gray-500">No invoices found for this period.</p>
+            <p className="text-gray-500">No sales data found for this period.</p>
             <Link to="/invoices/upload" className="text-indigo-600 hover:underline mt-2 inline-block">
-              Upload invoices
+              Upload sales data
             </Link>
           </div>
         ) : (

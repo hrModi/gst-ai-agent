@@ -12,6 +12,66 @@ const upload = multer({ storage: multer.memoryStorage() })
 // All routes require authentication
 router.use(authenticate)
 
+async function runValidation(clientId: string, monthNum: number, yearNum: number, tenantId: string) {
+  const allInvoices = await prisma.invoiceData.findMany({
+    where: { clientId, month: monthNum, year: yearNum, client: { tenantId } },
+  })
+
+  let totalErrors = 0
+  let validCount = 0
+  let invalidCount = 0
+
+  for (const invoice of allInvoices) {
+    await prisma.validationError.deleteMany({ where: { invoiceDataId: invoice.id } })
+
+    const errors = validateInvoice(invoice, allInvoices)
+    const txType = classifyTransaction(invoice)
+    const hasErrors = errors.some((e) => e.severity === 'ERROR')
+
+    if (errors.length > 0) {
+      await prisma.validationError.createMany({
+        data: errors.map((e) => ({
+          invoiceDataId: invoice.id,
+          errorType: e.errorType,
+          fieldName: e.fieldName,
+          errorMessage: e.errorMessage,
+          severity: e.severity,
+        })),
+      })
+    }
+
+    await prisma.invoiceData.update({
+      where: { id: invoice.id },
+      data: { validationStatus: hasErrors ? 'INVALID' : 'VALID', transactionType: txType },
+    })
+
+    totalErrors += errors.filter((e) => e.severity === 'ERROR').length
+    if (hasErrors) invalidCount++
+    else validCount++
+  }
+
+  await prisma.filingStatus.upsert({
+    where: { clientId_month_year: { clientId, month: monthNum, year: yearNum } },
+    update: {
+      dataReceived: true,
+      gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
+      stage: totalErrors > 0 ? 'VALIDATION_FAILED' : 'DATA_RECEIVED',
+      stageUpdatedAt: new Date(),
+    },
+    create: {
+      clientId,
+      month: monthNum,
+      year: yearNum,
+      dataReceived: true,
+      gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
+      stage: totalErrors > 0 ? 'VALIDATION_FAILED' : 'DATA_RECEIVED',
+      stageUpdatedAt: new Date(),
+    },
+  })
+
+  return { valid: validCount, invalid: invalidCount, totalErrors, total: allInvoices.length }
+}
+
 // POST /api/invoices/upload
 router.post('/upload', upload.single('file'), async (req: AuthRequest, res: Response) => {
   try {
@@ -82,102 +142,94 @@ router.post('/upload', upload.single('file'), async (req: AuthRequest, res: Resp
 
     const mappedRows = rows.map(mapRow)
 
-    // Create invoice records
-    const createdInvoices = []
-    for (const row of mappedRows) {
-      const invoice = await prisma.invoiceData.create({
-        data: {
-          ...row,
-          validationStatus: 'PENDING',
-        },
-      })
-      createdInvoices.push(invoice)
-    }
-
-    // Run validation on all invoices for this period (including any existing ones)
-    const allInvoices = await prisma.invoiceData.findMany({
-      where: {
-        clientId,
-        month: monthNum,
-        year: yearNum,
-        client: { tenantId: req.user!.tenantId },
-      },
+    // Delete existing records for this period (dedup fix)
+    await prisma.invoiceData.deleteMany({
+      where: { clientId, month: monthNum, year: yearNum },
     })
 
-    let totalErrors = 0
-    let totalWarnings = 0
-    let validCount = 0
-    let invalidCount = 0
+    // Create new invoice records with PENDING status
+    await prisma.invoiceData.createMany({
+      data: mappedRows.map((row) => ({ ...row, validationStatus: 'PENDING' })),
+    })
 
-    for (const invoice of allInvoices) {
-      // Delete any existing validation errors for this invoice
-      await prisma.validationError.deleteMany({
-        where: { invoiceDataId: invoice.id },
-      })
-
-      const errors = validateInvoice(invoice, allInvoices)
-      const txType = classifyTransaction(invoice)
-
-      const hasErrors = errors.some((e) => e.severity === 'ERROR')
-
-      // Create validation error records
-      if (errors.length > 0) {
-        await prisma.validationError.createMany({
-          data: errors.map((e) => ({
-            invoiceDataId: invoice.id,
-            errorType: e.errorType,
-            fieldName: e.fieldName,
-            errorMessage: e.errorMessage,
-            severity: e.severity,
-          })),
-        })
-      }
-
-      // Update invoice validation status and transaction type
-      await prisma.invoiceData.update({
-        where: { id: invoice.id },
-        data: {
-          validationStatus: hasErrors ? 'INVALID' : 'VALID',
-          transactionType: txType,
-        },
-      })
-
-      totalErrors += errors.filter((e) => e.severity === 'ERROR').length
-      totalWarnings += errors.filter((e) => e.severity === 'WARNING').length
-      if (hasErrors) invalidCount++
-      else validCount++
-    }
-
-    // Update filing status
+    // Upsert filing status — background validation will update stage further
     await prisma.filingStatus.upsert({
-      where: {
-        clientId_month_year: { clientId, month: monthNum, year: yearNum },
-      },
-      update: {
-        dataReceived: true,
-        gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
-      },
+      where: { clientId_month_year: { clientId, month: monthNum, year: yearNum } },
+      update: { dataReceived: true, stage: 'DATA_RECEIVED', stageUpdatedAt: new Date() },
       create: {
         clientId,
         month: monthNum,
         year: yearNum,
         dataReceived: true,
-        gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
+        stage: 'DATA_RECEIVED',
+        stageUpdatedAt: new Date(),
       },
     })
 
-    res.status(201).json({
+    res.status(201).json({ data: { uploaded: mappedRows.length } })
+
+    // Fire-and-forget validation — runs after response is sent
+    runValidation(clientId, monthNum, yearNum, req.user!.tenantId).catch(console.error)
+  } catch (error) {
+    console.error('Upload invoices error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// GET /api/invoices/status — must be before /:clientId to avoid param clash
+router.get('/status', async (req: AuthRequest, res: Response) => {
+  try {
+    const { clientId, month, year } = req.query
+    if (!clientId || !month || !year) {
+      res.status(400).json({ error: 'clientId, month, and year are required' })
+      return
+    }
+
+    const monthNum = parseInt(month as string, 10)
+    const yearNum = parseInt(year as string, 10)
+
+    // Verify client belongs to tenant
+    const clientWhere: any = {
+      id: clientId as string,
+      tenantId: req.user!.tenantId,
+    }
+    if (req.user!.role === 'CONSULTANT') {
+      clientWhere.assignedTo = req.user!.id
+    }
+    const client = await prisma.client.findFirst({ where: clientWhere })
+    if (!client) {
+      res.status(404).json({ error: 'Client not found' })
+      return
+    }
+
+    const [filingStatus, counts] = await Promise.all([
+      prisma.filingStatus.findUnique({
+        where: { clientId_month_year: { clientId: clientId as string, month: monthNum, year: yearNum } },
+        select: { stage: true },
+      }),
+      prisma.invoiceData.groupBy({
+        by: ['validationStatus'],
+        where: { clientId: clientId as string, month: monthNum, year: yearNum },
+        _count: true,
+      }),
+    ])
+
+    const pending = counts.find((c) => c.validationStatus === 'PENDING')?._count ?? 0
+    const valid = counts.find((c) => c.validationStatus === 'VALID')?._count ?? 0
+    const invalid = counts.find((c) => c.validationStatus === 'INVALID')?._count ?? 0
+
+    res.json({
       data: {
-        uploaded: createdInvoices.length,
-        totalInPeriod: allInvoices.length,
-        valid: validCount,
-        invalid: invalidCount,
-        totalErrors,
-        totalWarnings,
+        stage: filingStatus?.stage ?? 'NOT_STARTED',
+        validating: pending > 0,
+        pending,
+        valid,
+        invalid,
+        total: pending + valid + invalid,
       },
     })
   } catch (error) {
-    console.error('Upload invoices error:', error)
+    console.error('Get invoice status error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })
@@ -208,89 +260,23 @@ router.post('/validate', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    // Fetch all invoices for this period
-    const allInvoices = await prisma.invoiceData.findMany({
-      where: {
-        clientId,
-        month: monthNum,
-        year: yearNum,
-        client: { tenantId: req.user!.tenantId },
-      },
+    // Quick count check before running full validation
+    const count = await prisma.invoiceData.count({
+      where: { clientId, month: monthNum, year: yearNum },
     })
-
-    if (allInvoices.length === 0) {
+    if (count === 0) {
       res.status(404).json({ error: 'No invoices found for this period' })
       return
     }
 
-    let totalErrors = 0
-    let totalWarnings = 0
-    let validCount = 0
-    let invalidCount = 0
-
-    for (const invoice of allInvoices) {
-      // Delete old validation errors
-      await prisma.validationError.deleteMany({
-        where: { invoiceDataId: invoice.id },
-      })
-
-      const errors = validateInvoice(invoice, allInvoices)
-      const txType = classifyTransaction(invoice)
-
-      const hasErrors = errors.some((e) => e.severity === 'ERROR')
-
-      // Create new validation error records
-      if (errors.length > 0) {
-        await prisma.validationError.createMany({
-          data: errors.map((e) => ({
-            invoiceDataId: invoice.id,
-            errorType: e.errorType,
-            fieldName: e.fieldName,
-            errorMessage: e.errorMessage,
-            severity: e.severity,
-          })),
-        })
-      }
-
-      // Update invoice status
-      await prisma.invoiceData.update({
-        where: { id: invoice.id },
-        data: {
-          validationStatus: hasErrors ? 'INVALID' : 'VALID',
-          transactionType: txType,
-        },
-      })
-
-      totalErrors += errors.filter((e) => e.severity === 'ERROR').length
-      totalWarnings += errors.filter((e) => e.severity === 'WARNING').length
-      if (hasErrors) invalidCount++
-      else validCount++
-    }
-
-    // Update filing status
-    await prisma.filingStatus.upsert({
-      where: {
-        clientId_month_year: { clientId, month: monthNum, year: yearNum },
-      },
-      update: {
-        gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
-      },
-      create: {
-        clientId,
-        month: monthNum,
-        year: yearNum,
-        dataReceived: true,
-        gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
-      },
-    })
+    const result = await runValidation(clientId, monthNum, yearNum, req.user!.tenantId)
 
     res.json({
       data: {
-        totalInvoices: allInvoices.length,
-        valid: validCount,
-        invalid: invalidCount,
-        totalErrors,
-        totalWarnings,
+        totalInvoices: result.total,
+        valid: result.valid,
+        invalid: result.invalid,
+        totalErrors: result.totalErrors,
       },
     })
   } catch (error) {

@@ -188,7 +188,7 @@ export default function JsonGenerator() {
                     <dd className="text-sm font-mono font-medium text-gray-900">{result.metadata.fileName}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-500">Total Invoices</dt>
+                    <dt className="text-sm text-gray-500">Total Records</dt>
                     <dd className="text-sm font-medium text-gray-900">{result.metadata.totalInvoices}</dd>
                   </div>
                   <div>

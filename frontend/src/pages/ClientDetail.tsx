@@ -265,7 +265,7 @@ export default function ClientDetail() {
         {/* Invoice Summary */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Invoice Summary</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Sales Summary</h3>
             <Link
               to={`/invoices/${id}`}
               className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
@@ -276,7 +276,7 @@ export default function ClientDetail() {
           {invoiceSummary ? (
             <div className="grid grid-cols-2 gap-4">
               <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-500">Total Invoices</p>
+                <p className="text-xs text-gray-500">Total Records</p>
                 <p className="text-lg font-semibold text-gray-900">{invoiceSummary.totalInvoices}</p>
               </div>
               <div className="p-3 bg-gray-50 rounded-lg">

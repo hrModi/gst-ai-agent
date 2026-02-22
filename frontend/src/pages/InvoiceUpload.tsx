@@ -9,18 +9,7 @@ interface ClientOption {
   gstin: string
 }
 
-interface ValidationResult {
-  totalRows: number
-  validRows: number
-  errorRows: number
-  warningRows: number
-  errors: Array<{
-    row: number
-    field: string
-    message: string
-    type: 'error' | 'warning'
-  }>
-}
+type UploadState = 'idle' | 'uploading' | 'validating' | 'done'
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -34,16 +23,34 @@ export default function InvoiceUpload() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
   const [file, setFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const [uploadState, setUploadState] = useState<UploadState>('idle')
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [validationResult, setValidationResult] = useState<{ valid: number; invalid: number } | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchClients()
   }, [])
+
+  // Polling: check validation status every 2s while in 'validating' state
+  useEffect(() => {
+    if (uploadState !== 'validating') return
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/invoices/status?clientId=${selectedClient}&month=${month}&year=${year}`)
+        const { validating, valid, invalid } = res.data.data
+        if (!validating) {
+          clearInterval(interval)
+          setValidationResult({ valid, invalid })
+          setUploadState('done')
+        }
+      } catch {
+        // Ignore transient polling errors
+      }
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [uploadState, selectedClient, month, year])
 
   async function fetchClients() {
     try {
@@ -98,7 +105,7 @@ export default function InvoiceUpload() {
     setFile(f)
     setError('')
     setValidationResult(null)
-    setSuccess('')
+    setUploadState('idle')
   }
 
   async function handleUpload() {
@@ -111,9 +118,8 @@ export default function InvoiceUpload() {
       return
     }
 
-    setUploading(true)
+    setUploadState('uploading')
     setError('')
-    setSuccess('')
     setValidationResult(null)
 
     try {
@@ -123,47 +129,82 @@ export default function InvoiceUpload() {
       formData.append('month', String(month))
       formData.append('year', String(year))
 
-      const response = await api.post('/invoices/upload', formData, {
+      await api.post('/invoices/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
-      const d = response.data.data
-      setSuccess('File uploaded and processed successfully')
-      setValidationResult({
-        totalRows: d.totalInPeriod || d.uploaded || 0,
-        validRows: d.valid || 0,
-        errorRows: d.invalid || 0,
-        warningRows: d.totalWarnings || 0,
-        errors: [],
-      })
+      setUploadState('validating')
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Failed to upload file')
-    } finally {
-      setUploading(false)
+      setUploadState('idle')
     }
   }
 
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i)
+  const isProcessing = uploadState === 'uploading' || uploadState === 'validating'
 
   return (
-    <DashboardLayout title="Upload Invoices">
+    <DashboardLayout title="Upload Sales Data">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
         </div>
       )}
 
-      {success && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-          {success}
+      {uploadState === 'uploading' && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 flex-shrink-0"></div>
+          Uploading your file...
         </div>
+      )}
+
+      {uploadState === 'validating' && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 flex-shrink-0"></div>
+          File uploaded. System is validating your data...
+        </div>
+      )}
+
+      {uploadState === 'done' && validationResult && (
+        validationResult.invalid === 0 ? (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-green-600 text-base font-bold">&#10003;</span>
+              <span className="font-medium">
+                {validationResult.valid} record{validationResult.valid !== 1 ? 's' : ''} uploaded and validated successfully.
+              </span>
+            </div>
+            <Link
+              to={`/filing?month=${month}&year=${year}`}
+              className="text-green-700 hover:text-green-900 underline font-medium"
+            >
+              View Filing Status &rarr;
+            </Link>
+          </div>
+        ) : (
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-amber-600 text-base font-bold">&#9888;</span>
+              <span className="font-medium">
+                {validationResult.valid + validationResult.invalid} record{(validationResult.valid + validationResult.invalid) !== 1 ? 's' : ''} uploaded.{' '}
+                {validationResult.invalid} record{validationResult.invalid !== 1 ? 's' : ''} have errors.
+              </span>
+            </div>
+            <Link
+              to={`/invoices/${selectedClient}?month=${month}&year=${year}`}
+              className="text-amber-700 hover:text-amber-900 underline font-medium"
+            >
+              View Sales Data &rarr;
+            </Link>
+          </div>
+        )
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upload Form */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6">Upload Invoice Data</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-6">Upload Sales Data</h3>
 
             {/* Client Selector */}
             <div className="mb-4">
@@ -261,13 +302,13 @@ export default function InvoiceUpload() {
             <div className="mt-6">
               <button
                 onClick={handleUpload}
-                disabled={uploading || !file || !selectedClient}
+                disabled={isProcessing || !file || !selectedClient}
                 className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
-                {uploading && (
+                {isProcessing && (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                 )}
-                {uploading ? 'Uploading & Validating...' : 'Upload & Validate'}
+                {uploadState === 'uploading' ? 'Uploading...' : uploadState === 'validating' ? 'Validating...' : 'Upload & Validate'}
               </button>
             </div>
           </div>
@@ -284,7 +325,7 @@ export default function InvoiceUpload() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-indigo-500 mt-0.5">2.</span>
-                Upload the invoice data file (.xlsx or .csv)
+                Upload the sales data file (.xlsx or .csv)
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-indigo-500 mt-0.5">3.</span>
@@ -314,84 +355,6 @@ export default function InvoiceUpload() {
           </div>
         </div>
       </div>
-
-      {/* Validation Results */}
-      {validationResult && (
-        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Validation Results</h3>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-xs text-blue-600 font-medium">Total Rows</p>
-              <p className="text-2xl font-bold text-blue-800">{validationResult.totalRows}</p>
-            </div>
-            <div className="p-4 bg-green-50 rounded-lg">
-              <p className="text-xs text-green-600 font-medium">Valid</p>
-              <p className="text-2xl font-bold text-green-800">{validationResult.validRows}</p>
-            </div>
-            <div className="p-4 bg-red-50 rounded-lg">
-              <p className="text-xs text-red-600 font-medium">Errors</p>
-              <p className="text-2xl font-bold text-red-800">{validationResult.errorRows}</p>
-            </div>
-            <div className="p-4 bg-yellow-50 rounded-lg">
-              <p className="text-xs text-yellow-600 font-medium">Warnings</p>
-              <p className="text-2xl font-bold text-yellow-800">{validationResult.warningRows}</p>
-            </div>
-          </div>
-
-          {/* Error Details */}
-          {validationResult.errors && validationResult.errors.length > 0 && (
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Issues Found</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500">Row</th>
-                      <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500">Field</th>
-                      <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500">Type</th>
-                      <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500">Message</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {validationResult.errors.map((err, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-gray-800">{err.row}</td>
-                        <td className="px-4 py-2 text-gray-800 font-mono text-xs">{err.field}</td>
-                        <td className="px-4 py-2">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              err.type === 'error'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                            }`}
-                          >
-                            {err.type}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-gray-600">{err.message}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Link to view invoices */}
-          {selectedClient && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <Link
-                to={`/invoices/${selectedClient}`}
-                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-              >
-                View detailed invoice data &rarr;
-              </Link>
-            </div>
-          )}
-        </div>
-      )}
     </DashboardLayout>
   )
 }

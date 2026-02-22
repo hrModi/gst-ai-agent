@@ -99,7 +99,7 @@ export default function Dashboard() {
   const adminStatCards = data ? [
     { label: 'Total Clients', value: data.totalClients, color: 'bg-blue-500', sub: '' },
     { label: 'Data Received', value: data.dataReceivedCount, color: 'bg-green-500', sub: `of ${data.totalClients}` },
-    { label: 'With Errors', value: data.errorCount, color: 'bg-red-500', sub: 'invoices invalid' },
+    { label: 'With Errors', value: data.errorCount, color: 'bg-red-500', sub: 'records with errors' },
     { label: 'JSON Generated', value: data.jsonGeneratedCount, color: 'bg-purple-500', sub: '' },
     { label: 'GSTR-1 Filed', value: data.gstr1FiledCount, color: 'bg-indigo-500', sub: `of ${data.dataReceivedCount} received` },
     { label: 'GSTR-3B Filed', value: data.gstr3bFiledCount, color: 'bg-teal-500', sub: `of ${data.dataReceivedCount} received` },
@@ -165,7 +165,7 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500 mt-0.5">{data.statusSummary.validationErrors} clients have validation errors</p>
                   </div>
                   <Link
-                    to="/filing"
+                    to="/filing?stage=VALIDATION_FAILED"
                     className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 whitespace-nowrap"
                   >
                     Review Now
@@ -180,7 +180,7 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500 mt-0.5">{data.statusSummary.notStarted} clients haven't submitted data</p>
                   </div>
                   <Link
-                    to="/reminders"
+                    to="/reminders?tab=send"
                     className="px-3 py-1.5 bg-yellow-500 text-white text-xs font-medium rounded-lg hover:bg-yellow-600 whitespace-nowrap"
                   >
                     Send Reminder
