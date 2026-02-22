@@ -22,6 +22,7 @@ model Tenant {
   systemSettings    SystemSetting[]
   sheetSyncConfig   SheetSyncConfig?
   reminderTemplates ReminderTemplate[]
+  inboxMessages     InboxMessage[]
 
   @@map("tenants")
 }
@@ -88,13 +89,14 @@ model Client {
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  assignedUser User?         @relation("AssignedConsultant", fields: [assignedTo], references: [id])
-  invoiceData  InvoiceData[]
-  filingStatus FilingStatus[]
-  filedReturns FiledReturn[]
-  documents    Document[]
-  reminders    Reminder[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  assignedUser  User?          @relation("AssignedConsultant", fields: [assignedTo], references: [id])
+  invoiceData   InvoiceData[]
+  filingStatus  FilingStatus[]
+  filedReturns  FiledReturn[]
+  documents     Document[]
+  reminders     Reminder[]
+  inboxMessages InboxMessage[]
 
   @@unique([tenantId, gstin])
   @@map("clients")
@@ -318,12 +320,36 @@ model SheetSyncConfig {
   lastSyncedAt      DateTime? @map("last_synced_at")
   lastSyncStatus    String?   @map("last_sync_status")
   lastSyncSummary   Json?     @map("last_sync_summary")
+  gmailEnabled      Boolean   @default(false) @map("gmail_enabled")
+  gmailLastPollAt   DateTime? @map("gmail_last_poll_at")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@map("sheet_sync_configs")
+}
+
+model InboxMessage {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  clientId        String   @map("client_id")
+  gmailMessageId  String   @unique @map("gmail_message_id")
+  fromEmail       String   @map("from_email")
+  subject         String
+  receivedAt      DateTime @map("received_at")
+  month           Int
+  year            Int
+  attachmentCount Int      @default(0) @map("attachment_count")
+  status          String
+  pipelineStage   String?  @map("pipeline_stage")
+  errorSummary    String?  @map("error_summary")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("inbox_messages")
 }
 
 model ReminderTemplate {

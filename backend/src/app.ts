@@ -17,6 +17,7 @@ import sheetSyncRoutes from './routes/sheet-sync'
 import agentActivityRoutes from './routes/agent-activity'
 import systemSettingsRoutes from './routes/system-settings'
 import reminderTemplateRoutes from './routes/reminder-templates'
+import inboxRoutes from './routes/inbox'
 
 const app = express()
 
@@ -44,6 +45,7 @@ app.use('/api/sheet-sync', sheetSyncRoutes)
 app.use('/api/agent-activity', agentActivityRoutes)
 app.use('/api/system-settings', systemSettingsRoutes)
 app.use('/api/reminder-templates', reminderTemplateRoutes)
+app.use('/api/inbox', inboxRoutes)
 
 // Health check
 app.get('/api/health', (_req, res) => {

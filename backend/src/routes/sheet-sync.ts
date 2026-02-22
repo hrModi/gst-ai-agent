@@ -304,6 +304,70 @@ router.post('/preview', async (req: AuthRequest, res: Response) => {
   }
 })
 
+// GET /api/sheet-sync/gmail-status — connection status + last poll time
+router.get('/gmail-status', async (req: AuthRequest, res: Response) => {
+  try {
+    const config = await prisma.sheetSyncConfig.findUnique({
+      where: { tenantId: req.user!.tenantId },
+    })
+
+    const isConnected = !!(config?.googleRefreshToken)
+    const unprocessedCount = isConnected
+      ? await prisma.inboxMessage.count({
+          where: { tenantId: req.user!.tenantId, status: { in: ['RECEIVED', 'PROCESSING'] } },
+        })
+      : 0
+
+    res.json({
+      data: {
+        connected: isConnected,
+        gmailEnabled: config?.gmailEnabled ?? false,
+        googleEmail: config?.googleEmail ?? null,
+        lastPollAt: config?.gmailLastPollAt ?? null,
+        unprocessedCount,
+      },
+    })
+  } catch (error) {
+    console.error('Gmail status error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/sheet-sync/gmail-enable — enable Gmail polling after admin connects
+router.post('/gmail-enable', async (req: AuthRequest, res: Response) => {
+  try {
+    const config = await prisma.sheetSyncConfig.findUnique({
+      where: { tenantId: req.user!.tenantId },
+    })
+    if (!config?.googleRefreshToken) {
+      res.status(400).json({ error: 'Google account not connected. Please connect Google account first.' })
+      return
+    }
+    await prisma.sheetSyncConfig.update({
+      where: { tenantId: req.user!.tenantId },
+      data: { gmailEnabled: true },
+    })
+    res.json({ data: { gmailEnabled: true } })
+  } catch (error) {
+    console.error('Gmail enable error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/sheet-sync/gmail-disable — disable Gmail polling
+router.post('/gmail-disable', async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.sheetSyncConfig.updateMany({
+      where: { tenantId: req.user!.tenantId },
+      data: { gmailEnabled: false, gmailLastPollAt: null },
+    })
+    res.json({ data: { gmailEnabled: false } })
+  } catch (error) {
+    console.error('Gmail disable error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // POST /api/sheet-sync/apply — apply selected changes from preview
 router.post('/apply', async (req: AuthRequest, res: Response) => {
   try {

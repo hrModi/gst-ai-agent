@@ -10,6 +10,7 @@ const navItems = [
   { to: '/invoices/upload', label: 'Upload Sales Data', icon: '\u21E7' },
   { to: '/json-generator', label: 'JSON Generator', icon: '\u27A4' },
   { to: '/reminders', label: 'Reminders', icon: '\u266A' },
+  { to: '/inbox', label: 'Inbox Monitor', icon: '\u2709' },
   { to: '/documents', label: 'Documents', icon: '\u2637' },
 ]
 

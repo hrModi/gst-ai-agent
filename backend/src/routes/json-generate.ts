@@ -119,4 +119,72 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
 })
 
+// GET /api/json-generate/download?clientId=&month=&year=
+router.get('/download', async (req: AuthRequest, res: Response) => {
+  try {
+    const { clientId, month, year } = req.query as { clientId?: string; month?: string; year?: string }
+    if (!clientId || !month || !year) {
+      res.status(400).json({ error: 'clientId, month, and year are required' })
+      return
+    }
+
+    const monthNum = parseInt(month, 10)
+    const yearNum = parseInt(year, 10)
+
+    // Verify client belongs to tenant (and consultant can only access assigned clients)
+    const clientWhere: any = {
+      id: clientId,
+      tenantId: req.user!.tenantId,
+    }
+    if (req.user!.role === 'CONSULTANT') {
+      clientWhere.assignedTo = req.user!.id
+    }
+    const client = await prisma.client.findFirst({ where: clientWhere })
+    if (!client) {
+      res.status(404).json({ error: 'Client not found' })
+      return
+    }
+
+    // Ensure there are no invalid invoices
+    const invalidCount = await prisma.invoiceData.count({
+      where: {
+        clientId,
+        month: monthNum,
+        year: yearNum,
+        validationStatus: 'INVALID',
+        client: { tenantId: req.user!.tenantId },
+      },
+    })
+    if (invalidCount > 0) {
+      res.status(400).json({
+        error: `Cannot generate JSON: ${invalidCount} invoice(s) have validation errors.`,
+      })
+      return
+    }
+
+    const validCount = await prisma.invoiceData.count({
+      where: {
+        clientId,
+        month: monthNum,
+        year: yearNum,
+        validationStatus: 'VALID',
+        client: { tenantId: req.user!.tenantId },
+      },
+    })
+    if (validCount === 0) {
+      res.status(400).json({ error: 'No validated invoices found for this period' })
+      return
+    }
+
+    const result = await generateGSTR1(clientId, monthNum, yearNum, req.user!.tenantId)
+
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`)
+    res.send(JSON.stringify(result.json, null, 2))
+  } catch (error) {
+    console.error('Download JSON error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 export default router

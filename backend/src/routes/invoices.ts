@@ -3,7 +3,7 @@ import multer from 'multer'
 import * as XLSX from 'xlsx'
 import { prisma } from '../lib/prisma'
 import { authenticate } from '../middleware/auth'
-import { validateInvoice, classifyTransaction } from '../services/validation/invoice'
+import { parseInvoiceFile, runValidation, processClientData } from '../services/pipeline'
 import { AuthRequest } from '../types'
 
 const router = Router()
@@ -94,66 +94,6 @@ router.get('/sample-template', (_req, res: Response) => {
 // All remaining routes require authentication
 router.use(authenticate)
 
-async function runValidation(clientId: string, monthNum: number, yearNum: number, tenantId: string) {
-  const allInvoices = await prisma.invoiceData.findMany({
-    where: { clientId, month: monthNum, year: yearNum, client: { tenantId } },
-  })
-
-  let totalErrors = 0
-  let validCount = 0
-  let invalidCount = 0
-
-  for (const invoice of allInvoices) {
-    await prisma.validationError.deleteMany({ where: { invoiceDataId: invoice.id } })
-
-    const errors = validateInvoice(invoice, allInvoices)
-    const txType = classifyTransaction(invoice)
-    const hasErrors = errors.some((e) => e.severity === 'ERROR')
-
-    if (errors.length > 0) {
-      await prisma.validationError.createMany({
-        data: errors.map((e) => ({
-          invoiceDataId: invoice.id,
-          errorType: e.errorType,
-          fieldName: e.fieldName,
-          errorMessage: e.errorMessage,
-          severity: e.severity,
-        })),
-      })
-    }
-
-    await prisma.invoiceData.update({
-      where: { id: invoice.id },
-      data: { validationStatus: hasErrors ? 'INVALID' : 'VALID', transactionType: txType },
-    })
-
-    totalErrors += errors.filter((e) => e.severity === 'ERROR').length
-    if (hasErrors) invalidCount++
-    else validCount++
-  }
-
-  await prisma.filingStatus.upsert({
-    where: { clientId_month_year: { clientId, month: monthNum, year: yearNum } },
-    update: {
-      dataReceived: true,
-      gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
-      stage: totalErrors > 0 ? 'VALIDATION_FAILED' : 'DATA_RECEIVED',
-      stageUpdatedAt: new Date(),
-    },
-    create: {
-      clientId,
-      month: monthNum,
-      year: yearNum,
-      dataReceived: true,
-      gstr1Status: totalErrors > 0 ? 'VALIDATION_ERRORS' : 'DATA_RECEIVED',
-      stage: totalErrors > 0 ? 'VALIDATION_FAILED' : 'DATA_RECEIVED',
-      stageUpdatedAt: new Date(),
-    },
-  })
-
-  return { valid: validCount, invalid: invalidCount, totalErrors, total: allInvoices.length }
-}
-
 // POST /api/invoices/upload
 router.post('/upload', upload.single('file'), async (req: AuthRequest, res: Response) => {
   try {
@@ -185,73 +125,29 @@ router.post('/upload', upload.single('file'), async (req: AuthRequest, res: Resp
       return
     }
 
-    // Parse Excel/CSV file
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' })
-    const sheetName = workbook.SheetNames[0]
-    const sheet = workbook.Sheets[sheetName]
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet)
-
-    if (rows.length === 0) {
-      res.status(400).json({ error: 'File contains no data rows' })
+    // Quick parse check before responding — throws if file has no rows
+    let rowCount: number
+    try {
+      const rows = parseInvoiceFile(req.file.buffer, req.file.originalname, clientId, monthNum, yearNum)
+      rowCount = rows.length
+    } catch (parseErr: any) {
+      res.status(400).json({ error: parseErr.message || 'Failed to parse file' })
       return
     }
 
-    // Map column names (handle common variations)
-    const mapRow = (row: any, index: number) => ({
+    // Respond immediately — full pipeline runs in background
+    res.status(201).json({ data: { uploaded: rowCount } })
+
+    // Fire-and-forget pipeline — parse + validate + (if clean) generate JSON + notify
+    processClientData(
       clientId,
-      month: monthNum,
-      year: yearNum,
-      invoiceNumber: String(row['Invoice Number'] || row['invoice_number'] || row['InvoiceNumber'] || ''),
-      invoiceDate: String(row['Invoice Date'] || row['invoice_date'] || row['InvoiceDate'] || ''),
-      buyerGstin: row['Buyer GSTIN'] || row['buyer_gstin'] || row['BuyerGSTIN'] || null,
-      buyerName: row['Buyer Name'] || row['buyer_name'] || row['BuyerName'] || null,
-      placeOfSupply: row['Place of Supply'] || row['place_of_supply'] || row['POS'] || null,
-      reverseCharge: row['Reverse Charge'] === 'Y' || row['reverse_charge'] === true || false,
-      invoiceValue: parseFloat(row['Invoice Value'] || row['invoice_value'] || row['InvoiceValue'] || '0'),
-      taxableValue: parseFloat(row['Taxable Value'] || row['taxable_value'] || row['TaxableValue'] || '0'),
-      taxRate: parseFloat(row['Tax Rate'] || row['tax_rate'] || row['TaxRate'] || '0'),
-      igstAmount: parseFloat(row['IGST Amount'] || row['igst_amount'] || row['IGST'] || '0'),
-      cgstAmount: parseFloat(row['CGST Amount'] || row['cgst_amount'] || row['CGST'] || '0'),
-      sgstAmount: parseFloat(row['SGST Amount'] || row['sgst_amount'] || row['SGST'] || '0'),
-      cessAmount: parseFloat(row['Cess Amount'] || row['cess_amount'] || row['CESS'] || '0'),
-      hsnCode: row['HSN Code'] || row['hsn_code'] || row['HSN'] || null,
-      description: row['Description'] || row['description'] || null,
-      noteType: row['Note Type'] || row['note_type'] || null,
-      originalInvoice: row['Original Invoice'] || row['original_invoice'] || null,
-      exportType: row['Export Type'] || row['export_type'] || null,
-      rowNumber: index + 1,
-    })
-
-    const mappedRows = rows.map(mapRow)
-
-    // Delete existing records for this period (dedup fix)
-    await prisma.invoiceData.deleteMany({
-      where: { clientId, month: monthNum, year: yearNum },
-    })
-
-    // Create new invoice records with PENDING status
-    await prisma.invoiceData.createMany({
-      data: mappedRows.map((row) => ({ ...row, validationStatus: 'PENDING' })),
-    })
-
-    // Upsert filing status — background validation will update stage further
-    await prisma.filingStatus.upsert({
-      where: { clientId_month_year: { clientId, month: monthNum, year: yearNum } },
-      update: { dataReceived: true, stage: 'DATA_RECEIVED', stageUpdatedAt: new Date() },
-      create: {
-        clientId,
-        month: monthNum,
-        year: yearNum,
-        dataReceived: true,
-        stage: 'DATA_RECEIVED',
-        stageUpdatedAt: new Date(),
-      },
-    })
-
-    res.status(201).json({ data: { uploaded: mappedRows.length } })
-
-    // Fire-and-forget validation — runs after response is sent
-    runValidation(clientId, monthNum, yearNum, req.user!.tenantId).catch(console.error)
+      monthNum,
+      yearNum,
+      req.file.buffer,
+      req.file.originalname,
+      'MANUAL',
+      req.user!.tenantId
+    ).catch(console.error)
   } catch (error) {
     console.error('Upload invoices error:', error)
     res.status(500).json({ error: 'Internal server error' })
@@ -358,7 +254,7 @@ router.post('/validate', async (req: AuthRequest, res: Response) => {
         totalInvoices: result.total,
         valid: result.valid,
         invalid: result.invalid,
-        totalErrors: result.totalErrors,
+        totalErrors: result.totalErrors ?? 0,
       },
     })
   } catch (error) {

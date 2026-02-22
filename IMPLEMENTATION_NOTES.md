@@ -7,8 +7,8 @@
 | 1A | ✅ Complete | Google Sheets OAuth sync modal in /clients. Backend: sheet-sync.ts + google-sheets.ts. DB: SheetSyncConfig. |
 | 1B | ✅ Complete | Per-client automation fields on Client model. FilingStatus.stage + stageUpdatedAt. YakshActivity table. |
 | 1C | ✅ Complete | node-cron scheduler. Daily reminder job (9 AM IST). Monthly status-init job (1st). isAuto field on Reminder. Schedule tab in Reminders.tsx. |
-| 1D | ⏳ Pending | Gmail inbox poller. InboxMessage model. InboxMonitor.tsx page. |
-| 1E | ⏳ Pending | Auto pipeline: email → parse → validate → JSON → notify. pipeline.ts + notification.ts. |
+| 1D | ✅ Complete | Gmail inbox poller. InboxMessage model. InboxMonitor.tsx page. Gmail enable/disable via sheet-sync.ts. |
+| 1E | ✅ Complete | Auto pipeline: email → parse → validate → JSON → notify. pipeline.ts + notification.ts. |
 | 1F | ⏳ Pending | Claude AI (Yaksh intelligence). yaksh.ts service. Anthropic SDK. |
 | 1G | ⏳ Pending | GSTR-2B upload + reconciliation. 2 new DB tables. Reconciliation.tsx page. |
 | 1H | ⏳ Pending | GSTR-3B computation. NIL/PAYMENT/CREDIT classification. Gstr3bView.tsx. |
@@ -189,14 +189,75 @@
 ---
 
 ### JSON Generation (`backend/src/routes/json-generate.ts`)
-- Generates GSTR-1 JSON from validated invoice data
+- `POST /api/json-generate` — generates GSTR-1 JSON from validated invoices, updates `filingStatus.jsonGenerated=true` + `gstr1Status: JSON_GENERATED`, writes audit log, returns JSON in response body (one-time download from JSON Generator page)
+- `GET /api/json-generate/download?clientId=&month=&year=` — re-generates JSON on demand from DB; read-only (no DB writes); returns file with `Content-Disposition: attachment; filename="{GSTIN}_{MMYYYY}_GSTR1.json"`. Shown as "Download JSON" button on Filing Status page for rows where `jsonGenerated=true`.
 - 6 sections: b2b, b2cl, b2cs (aggregated), cdnr, exp, hsn (aggregated)
 - Transaction classification: CDNR → EXP → B2B → B2CL (>₹2.5L interstate) → B2CS (default)
+- Both endpoints enforce tenant isolation + consultant RBAC (assignedTo check)
+
+**Filing Status page (`frontend/src/pages/Filing.tsx`):**
+- "Download JSON" button (green) in Actions column visible when `filing.jsonGenerated === true`
+- `downloadJson()` fetches `GET /json-generate/download` as `responseType: 'blob'`, extracts filename from `Content-Disposition`, triggers browser download via `URL.createObjectURL`
+
+---
+
+### Gmail Inbox Poller (1D — `backend/src/services/gmail.ts`, `backend/src/routes/inbox.ts`)
+
+**Gmail OAuth / scope:**
+- `gmail.readonly` scope added alongside `spreadsheets.readonly` + `userinfo.email` in `google-sheets.ts`
+- `getAuthClientForTenant()` exported from `google-sheets.ts` — used by `gmail.ts`
+- Gmail polling uses the already-connected Google account (`SheetSyncConfig.googleEmail`)
+
+**gmail.ts functions:**
+- `pollNewMessages(tenantId, lastPollAt)` — fetches messages received after `lastPollAt`
+- `fetchMessage(auth, messageId)` — full message with headers + parts
+- `downloadAttachment(auth, messageId, attachmentId)` — returns `Buffer`
+- `parseSubject(subject)` — parses `GSTR1-DATA | {GSTIN} | {MM-YYYY}` format; returns `null` for non-matching subjects
+
+**SheetSyncConfig additions (no new table):**
+- `gmailEnabled Boolean @default(false)`
+- `gmailLastPollAt DateTime?`
+
+**Gmail control endpoints (in `sheet-sync.ts`):**
+- `GET /api/sheet-sync/gmail-status` — returns `{ enabled, lastPollAt, googleEmail }`
+- `POST /api/sheet-sync/gmail-enable` — sets `gmailEnabled: true`
+- `POST /api/sheet-sync/gmail-disable` — sets `gmailEnabled: false`
+
+**Inbox poll job (`backend/src/services/jobs/inbox-poll-job.ts`):**
+- Runs every 5 minutes via scheduler
+- For each tenant with `gmailEnabled: true`: calls `pollNewMessages()`, processes matched emails via `processClientData()`, updates `gmailLastPollAt`
+- Unrecognised GSTINs → `YakshActivity ERROR` only (no `InboxMessage` record stored)
+
+**Inbox API (`backend/src/routes/inbox.ts`):**
+- `GET /api/inbox` — list `InboxMessage` records for tenant (all roles)
+- `InboxMessage` status flow: `PROCESSING → PROCESSED | FAILED`
+
+**Frontend:**
+- `/inbox` → `InboxMonitor.tsx` — visible to all roles; admin section shows Gmail connection status + enable/disable toggle; unrecognised GSTIN errors shown from YakshActivity
+- Sidebar: "Inbox Monitor" (✉) item between Reminders and Documents
+- Settings page: Google Account card notes Gmail monitoring + link to Inbox Monitor
+
+---
+
+### Auto Pipeline (1E — `backend/src/services/pipeline.ts`, `backend/src/services/notification.ts`)
+
+**pipeline.ts:**
+- `parseInvoiceFile(buffer, fileName)` — parses XLSX/CSV buffer into invoice rows
+- `runValidation(clientId, month, year, tenantId)` — shared validation runner (extracted from `invoices.ts`); also called by upload handler fire-and-forget
+- `processClientData(clientId, month, year, buffer, fileName, source, tenantId, inboxMessageId?)` — full orchestration: parse → store (deleteMany + createMany) → upsert `DATA_RECEIVED` → `runValidation()` → if clean: `generateGSTR1()` + `notifyConsultant('JSON_READY')` → else: `notifyConsultant('VALIDATION_FAILED')`
+
+**notification.ts:**
+- `notifyConsultant(clientId, event, data)` — reads client `notifyEmail`/`notifyWhatsapp` prefs, sends email + WhatsApp, logs `YakshActivity` with `activityType: NOTIFICATION_SENT`
+- Events: `'JSON_READY'` | `'VALIDATION_FAILED'`
+
+**invoices.ts integration:**
+- Upload handler now calls `processClientData()` fire-and-forget (same behaviour as before but now via shared pipeline)
 
 ---
 
 ### Other Routes
 - `/api/invoices` — upload/validate invoice data
+- `/api/inbox` — Gmail inbox messages (matched emails only)
 - `/api/filed-returns` — ARN entry and acknowledgment tracking
 - `/api/documents` — file upload/download via S3 signed URLs
 - `/api/audit-logs` — read-only audit trail
@@ -209,10 +270,9 @@
 **Current routes:**
 - `/dashboard`, `/clients`, `/clients/new`, `/clients/:id`, `/clients/:id/edit`
 - `/filing`, `/invoices/upload`, `/invoices/:clientId`, `/json-generator`
-- `/reminders`, `/documents`, `/settings` (admin only)
+- `/reminders`, `/inbox`, `/documents`, `/settings` (admin only)
 
 **Coming Soon routes (ComingSoon.tsx placeholder):**
-- `/inbox` — Inbox Monitor (Phase 1D)
 - `/reconciliation` — GSTR-2B Reconciliation (Phase 1G)
 - `/gstr3b` — GSTR-3B Preparation (Phase 1H)
 - `/yaksh` — Yaksh Activity Dashboard (Phase 1I)
@@ -220,11 +280,11 @@
 **`frontend/src/pages/ComingSoon.tsx`** — shared placeholder component; takes `title`, `description`, `phase` props; shows clock icon + description + phase badge. Used by existing pages that are not yet functional.
 
 **Sidebar sections:**
-1. Main nav (all users): Dashboard ⊞, Clients, Filing Status, Upload Invoices, JSON Generator, Reminders, Documents
+1. Main nav (all users): Dashboard ⊞, Clients, Filing Status, Upload Sales Data, JSON Generator, Reminders, Inbox Monitor, Documents
 2. Admin only: Settings
 
 **Pages showing Coming Soon (existing routes, not functional yet):**
-- `/documents` → ComingSoon (Phase 1E) — Documents page has no upload/download; backend S3 is stubbed. Original UI code preserved in Documents.tsx behind `COMING_SOON = true` flag.
+- `/documents` → ComingSoon — Documents page has no upload/download; backend S3 is stubbed. Original UI code preserved in Documents.tsx behind `COMING_SOON = true` flag.
 
 ---
 

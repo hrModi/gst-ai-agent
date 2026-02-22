@@ -14,6 +14,7 @@ import Reminders from './pages/Reminders'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
 import EditClient from './pages/EditClient'
+import InboxMonitor from './pages/InboxMonitor'
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
@@ -139,6 +140,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inbox"
+        element={
+          <ProtectedRoute>
+            <InboxMonitor />
           </ProtectedRoute>
         }
       />

@@ -169,6 +169,28 @@ export default function Filing() {
     setArnError('')
   }
 
+  async function downloadJson(clientId: string, displayName: string) {
+    try {
+      const res = await api.get('/json-generate/download', {
+        params: { clientId, month, year },
+        responseType: 'blob',
+      })
+      const contentDisposition = (res.headers['content-disposition'] as string) || ''
+      const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
+      const fileName = fileNameMatch ? fileNameMatch[1] : `${displayName}_GSTR1.json`
+      const url = URL.createObjectURL(res.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setError(`Failed to download JSON for ${displayName}`)
+    }
+  }
+
   async function submitArn() {
     if (!arnValue.trim()) {
       setArnError('ARN is required')
@@ -412,6 +434,14 @@ export default function Filing() {
                           >
                             View Errors &rarr;
                           </Link>
+                        )}
+                        {filing.jsonGenerated && (
+                          <button
+                            onClick={() => downloadJson(filing.clientId, filing.tradeName || filing.legalName)}
+                            className="text-xs px-3 py-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 font-medium transition-colors"
+                          >
+                            Download JSON
+                          </button>
                         )}
                         {filing.gstr1Status !== 'filed' && (
                           <button

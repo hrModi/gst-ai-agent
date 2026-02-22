@@ -9,7 +9,7 @@ npm test              # Run all tests once
 npm run test:watch    # Watch mode
 npm run test:coverage # With coverage report
 ```
-- **141 tests** across 12 test suites
+- **148 tests** across 12 test suites
 - Tests run in-band (serially) via `--runInBand` for stability
 - Prisma, email, WhatsApp, storage, and scheduler are all mocked
 
@@ -59,6 +59,15 @@ The following test cases require visual/browser inspection and cannot be automat
 | 8.13 | Stage progress bar renders | Open Filing Status → verify horizontal progress indicator shows current stage |
 | 8.14 | Color-coded stage badges | Verify stage chips: NOT_STARTED=gray, DATA_RECEIVED=blue, FILED=green, etc. |
 
+### Group 11 — GSTR-1 JSON Download Button (Filing Status page)
+
+| ID | Test Case | Steps |
+|----|-----------|-------|
+| 11.D.UI1 | "Download JSON" button visible only for rows with `jsonGenerated=true` | Open Filing Status — verify button appears for clients with stage JSON_GENERATED or READY_TO_FILE but not for NOT_STARTED/DATA_RECEIVED rows |
+| 11.D.UI2 | Download triggers correct filename | Click "Download JSON" — verify browser downloads a file named `{GSTIN}_{MMYYYY}_GSTR1.json` (e.g. `27AABCU9603R1ZX_012026_GSTR1.json`) |
+| 11.D.UI3 | Error message shown for failed download | Manually force a 400/500 response (e.g. delete invoice data first) — verify the error banner appears above the table |
+| 11.D.UI4 | Re-download produces identical file | Click "Download JSON" twice for the same client — verify both downloads are byte-for-byte identical |
+
 ### Group 14 — Reminder Schedule Visual
 
 | ID | Test Case | Steps |
@@ -95,7 +104,7 @@ The following test cases require visual/browser inspection and cannot be automat
 | 8 | Filing status grid | ✅ Backend | Stage colors, progress bar |
 | 9 | ARN recording | ✅ Backend | — |
 | 10 | Invoice validation | ✅ Backend + Service | — |
-| 11 | GSTR-1 JSON generator | ✅ Backend + Service | — |
+| 11 | GSTR-1 JSON generator + re-download | ✅ Backend + Service | Download button UX, filename format |
 | 12 | Send reminders | ✅ Backend | — |
 | 13 | Reminder templates | ✅ Backend | — |
 | 14 | Reminder schedule | ✅ Backend | Calendar UI layout |

@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma'
 const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets.readonly',
   'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/gmail.readonly',
 ]
 
 const EXPECTED_HEADERS = [
@@ -106,7 +107,7 @@ export async function exchangeCodeForTokens(code: string, redirectUri: string) {
  * Get an authenticated OAuth2 client using stored tokens for a tenant.
  * Auto-refreshes the access token if expired.
  */
-async function getAuthClientForTenant(tenantId: string) {
+export async function getAuthClientForTenant(tenantId: string) {
   const config = await prisma.sheetSyncConfig.findUnique({
     where: { tenantId },
   })

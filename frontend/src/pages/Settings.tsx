@@ -461,7 +461,7 @@ export default function Settings() {
         {/* Google Account */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Google Account</h2>
-          <p className="text-sm text-gray-500 mb-4">Connect a Google account to enable Sync from Sheet on the Clients page.</p>
+          <p className="text-sm text-gray-500 mb-4">Connect a Google account to enable Sync from Sheet on the Clients page and Gmail inbox monitoring.</p>
           {syncLoading ? (
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
           ) : syncConfig?.isConnected ? (
@@ -494,6 +494,11 @@ export default function Settings() {
               </svg>
               {connecting ? 'Redirecting...' : 'Connect with Google'}
             </button>
+          )}
+          {syncConfig?.isConnected && (
+            <p className="text-xs text-gray-400 mt-3">
+              After connecting, go to <strong>Inbox Monitor</strong> to enable Gmail polling for automated data ingestion.
+            </p>
           )}
         </div>
       </div>

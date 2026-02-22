@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { runReminderJob } from './jobs/reminder-job'
 import { runStatusInitJob } from './jobs/status-init-job'
+import { runInboxPollJob } from './jobs/inbox-poll-job'
 
 export function startScheduler() {
   // Daily 9 AM IST (03:30 UTC)
@@ -15,5 +16,10 @@ export function startScheduler() {
     await runStatusInitJob()
   }, { timezone: 'Asia/Kolkata' })
 
-  console.log('[Scheduler] Started: reminder-job (daily 9AM IST), status-init-job (1st of month midnight IST)')
+  // Every 5 minutes — Gmail inbox poll
+  cron.schedule('*/5 * * * *', async () => {
+    await runInboxPollJob()
+  })
+
+  console.log('[Scheduler] Started: reminder-job (daily 9AM IST), status-init-job (1st of month midnight IST), inbox-poll-job (every 5 min)')
 }
