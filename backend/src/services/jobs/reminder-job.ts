@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma'
 import { sendEmail } from '../email'
-import { sendWhatsApp } from '../whatsapp'
+import { sendWhatsApp, sendWhatsAppTemplate } from '../whatsapp'
 import { DEFAULT_TEMPLATES } from '../../routes/reminder-templates'
 
 const MONTH_NAMES = [
@@ -88,8 +88,10 @@ export async function runReminderJob() {
 
         const monthName = MONTH_NAMES[currentMonth - 1]
         const dueDate = `${client.gstr1DueDay} ${monthName} ${currentYear}`
+        const contactPerson = (client as any).contactPerson || client.legalName
         const vars = {
           clientName: client.legalName,
+          contactPerson,
           month: monthName,
           year: String(currentYear),
           dueDate,
@@ -118,8 +120,16 @@ export async function runReminderJob() {
               const result = await sendEmail(client.email, resolvedSubject, resolvedBody)
               success = result.success
             } else if (channel === 'WHATSAPP' && client.phone) {
-              const result = await sendWhatsApp(client.phone, resolvedBody)
-              success = result.success
+              const envKey = `GUPSHUP_TEMPLATE_${reminderType}`
+              const elementName = process.env[envKey]
+              if (elementName) {
+                const templateParams = [contactPerson, client.legalName, monthName, String(currentYear)]
+                const result = await sendWhatsAppTemplate(client.phone, elementName, templateParams)
+                success = result.success
+              } else {
+                const result = await sendWhatsApp(client.phone, resolvedBody)
+                success = result.success
+              }
             }
           } catch (err) {
             console.error(`[ReminderJob] Send failed for ${client.legalName} via ${channel}:`, err)

@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma'
 import { authenticate } from '../middleware/auth'
 import { reminderSchema } from '../services/validation/schemas'
 import { sendEmail } from '../services/email'
-import { sendWhatsApp } from '../services/whatsapp'
+import { sendWhatsApp, sendWhatsAppTemplate } from '../services/whatsapp'
 import { DEFAULT_TEMPLATES } from './reminder-templates'
 import { AuthRequest } from '../types'
 
@@ -68,6 +68,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       const monthName = data.month ? MONTH_NAMES[data.month - 1] : ''
       const vars: Record<string, string> = {
         clientName: client.legalName,
+        contactPerson: (client as any).contactPerson || client.legalName,
         month: monthName,
         year: data.year ? String(data.year) : '',
         dueDate: '',
@@ -105,7 +106,19 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         )
         sendResult = { success: emailResult.success }
       } else if (data.channel === 'WHATSAPP' && client.phone) {
-        sendResult = await sendWhatsApp(client.phone, messageText)
+        const envKey = `GUPSHUP_TEMPLATE_${data.reminderType}`
+        const elementName = process.env[envKey]
+        if (elementName) {
+          const contactPerson = (client as any).contactPerson || client.legalName
+          const monthName = data.month ? MONTH_NAMES[data.month - 1] : ''
+          const isDeadlineType = data.reminderType === 'GSTR1_DEADLINE' || data.reminderType === 'GSTR3B_DEADLINE'
+          const templateParams = isDeadlineType
+            ? [contactPerson, client.legalName, '']
+            : [contactPerson, client.legalName, monthName, data.year ? String(data.year) : '']
+          sendResult = await sendWhatsAppTemplate(client.phone, elementName, templateParams)
+        } else {
+          sendResult = await sendWhatsApp(client.phone, messageText)
+        }
       } else if (data.channel === 'SMS' && client.phone) {
         // SMS stub - same as WhatsApp for now
         console.log(`--- SMS STUB --- Phone: ${client.phone}, Message: ${messageText}`)

@@ -9,14 +9,17 @@ interface Client {
   gstin: string
   legalName: string
   tradeName: string
+  contactPerson: string | null
+  email: string | null
+  phone: string | null
+  stateCode: string | null
+  filingFrequency: string
   assignedTo: string | null
   assignedUser: { id: string; name: string; email: string } | null
   status: 'ACTIVE' | 'INACTIVE'
   automationEnabled: boolean
   notifyEmail: boolean
   notifyWhatsapp: boolean
-  email: string
-  phone: string
   createdAt: string
   updatedAt: string
 }
@@ -490,6 +493,10 @@ export default function Clients() {
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">GSTIN</th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Legal Name</th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trade Name</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact Person</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Filing Freq</th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Consultant</th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Reminders</th>
@@ -516,6 +523,16 @@ export default function Clients() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">{client.legalName}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{client.tradeName || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{client.contactPerson || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{client.email || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{client.phone || '—'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          client.filingFrequency === 'MONTHLY' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {client.filingFrequency === 'MONTHLY' ? 'Monthly' : 'Quarterly'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{client.assignedUser?.name || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

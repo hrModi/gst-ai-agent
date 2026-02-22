@@ -257,6 +257,18 @@ export default function InvoiceUpload() {
               </div>
             </div>
 
+            {/* Download Sample + hint */}
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm text-gray-500">Upload a .xlsx or .csv file with your sales data.</p>
+              <a
+                href={`${import.meta.env.DEV ? '/api' : 'https://api.gstpilot.in/api'}/invoices/sample-template`}
+                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                download
+              >
+                &#11015; Download Sample
+              </a>
+            </div>
+
             {/* File Drop Zone */}
             <div
               onDragOver={handleDragOver}

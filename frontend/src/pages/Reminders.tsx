@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../lib/api'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import { useAuth } from '../contexts/AuthContext'
@@ -55,7 +56,7 @@ const REMINDER_TYPE_LABELS: Record<string, string> = {
   GSTR3B_DEADLINE: 'GSTR-3B Deadline',
 }
 const CHANNELS = ['EMAIL', 'WHATSAPP', 'SMS']
-const PLACEHOLDERS = ['{clientName}', '{month}', '{year}', '{dueDate}', '{consultantName}']
+const PLACEHOLDERS = ['{contactPerson}', '{clientName}', '{month}', '{year}', '{dueDate}', '{consultantName}']
 
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -308,33 +309,46 @@ function TemplatesTab() {
           {CHANNELS.map((ch) => (
             activeChannels[type] === ch && (
               <div key={ch} className="p-6 space-y-4">
-                {ch === 'EMAIL' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Subject Line</label>
-                    <input
-                      type="text"
-                      value={edits[type]?.[ch]?.subject || ''}
-                      onChange={(e) => updateEdit(type, ch, 'subject', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
-                  </div>
+                {ch === 'WHATSAPP' ? (
+                  <>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-sm text-gray-700 whitespace-pre-line font-mono">{edits[type]?.[ch]?.body || ''}</p>
+                    </div>
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      WhatsApp messages use Gupshup-registered templates and cannot be edited here. To update the template content, modify it on the Gupshup dashboard and wait for approval.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    {ch === 'EMAIL' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject Line</label>
+                        <input
+                          type="text"
+                          value={edits[type]?.[ch]?.subject || ''}
+                          onChange={(e) => updateEdit(type, ch, 'subject', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Message Body</label>
+                      <textarea
+                        rows={4}
+                        value={edits[type]?.[ch]?.body || ''}
+                        onChange={(e) => updateEdit(type, ch, 'body', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono"
+                      />
+                    </div>
+                    <button
+                      onClick={() => saveTemplate(type, ch)}
+                      disabled={saving === `${type}:${ch}`}
+                      className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {saving === `${type}:${ch}` ? 'Saving...' : 'Save Template'}
+                    </button>
+                  </>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Message Body</label>
-                  <textarea
-                    rows={4}
-                    value={edits[type]?.[ch]?.body || ''}
-                    onChange={(e) => updateEdit(type, ch, 'body', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono"
-                  />
-                </div>
-                <button
-                  onClick={() => saveTemplate(type, ch)}
-                  disabled={saving === `${type}:${ch}`}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {saving === `${type}:${ch}` ? 'Saving...' : 'Save Template'}
-                </button>
               </div>
             )
           ))}
@@ -599,7 +613,10 @@ function LogsTab({ clients }: { clients: Client[] }) {
 // ---- Main Reminders Page ----
 export default function Reminders() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState<'send' | 'templates' | 'schedule' | 'logs'>('send')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<'send' | 'templates' | 'schedule' | 'logs'>(
+    (searchParams.get('tab') as 'send' | 'templates' | 'schedule' | 'logs') || 'send'
+  )
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
 

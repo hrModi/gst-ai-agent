@@ -11,79 +11,79 @@ const DEFAULT_TEMPLATES: Record<string, Record<string, { subject?: string; body:
   SALES_DATA_COLLECTION: {
     EMAIL: {
       subject: 'Sales Invoice Data Required for {month} {year}',
-      body: 'Dear {clientName},\n\nWe need your sales invoices for {month} {year} to file your GSTR-1. Please share at the earliest.\n\nRegards,\nTeam',
+      body: 'Dear {contactPerson},\n\nWe need sales invoices for {clientName} for {month} {year} to file your GSTR-1. Please share at the earliest.\n\nRegards,\nTeam',
     },
     WHATSAPP: {
-      body: 'Hi {clientName}, please share your sales invoices for {month} {year} so we can file your GSTR-1 on time.',
+      body: 'Hi {contactPerson}, please share sales invoices for {clientName} for {month} {year} so we can file your GSTR-1 on time.',
     },
     SMS: {
-      body: 'Hi {clientName}, please share sales invoices for {month} {year} for GSTR-1 filing. Contact {consultantName}.',
+      body: 'Hi {contactPerson}, please share sales invoices for {clientName} for {month} {year} for GSTR-1 filing. Contact {consultantName}.',
     },
   },
   PURCHASE_DATA_COLLECTION: {
     EMAIL: {
       subject: 'Purchase & ITC Data Required for {month} {year}',
-      body: 'Dear {clientName},\n\nWe need your purchase invoices and ITC data for {month} {year} to file your GSTR-3B. Please share at the earliest.\n\nRegards,\nTeam',
+      body: 'Dear {contactPerson},\n\nWe need purchase invoices and ITC data for {clientName} for {month} {year} to file your GSTR-3B. Please share at the earliest.\n\nRegards,\nTeam',
     },
     WHATSAPP: {
-      body: 'Hi {clientName}, please share your purchase/ITC data for {month} {year} so we can file your GSTR-3B on time.',
+      body: 'Hi {contactPerson}, please share purchase/ITC data for {clientName} for {month} {year} so we can file your GSTR-3B on time.',
     },
     SMS: {
-      body: 'Hi {clientName}, please share purchase/ITC data for {month} {year} for GSTR-3B filing. Contact {consultantName}.',
+      body: 'Hi {contactPerson}, please share purchase/ITC data for {clientName} for {month} {year} for GSTR-3B filing. Contact {consultantName}.',
     },
   },
   SALES_FOLLOW_UP: {
     EMAIL: {
       subject: 'Reminder: Sales Data Pending for {month} {year}',
-      body: "Dear {clientName},\n\nThis is a follow-up. We still haven't received your sales invoices for {month} {year}. Please share urgently to avoid GSTR-1 filing delays.\n\nRegards,\nTeam",
+      body: "Dear {contactPerson},\n\nThis is a follow-up. We still haven't received sales invoices for {clientName} for {month} {year}. Please share urgently to avoid GSTR-1 filing delays.\n\nRegards,\nTeam",
     },
     WHATSAPP: {
-      body: 'Hi {clientName}, following up — sales invoices for {month} {year} are still pending. Please share asap.',
+      body: 'Hi {contactPerson}, following up — sales invoices for {clientName} for {month} {year} are still pending. Please share asap.',
     },
     SMS: {
-      body: '{clientName}, sales invoices for {month} {year} still pending. Contact {consultantName} urgently.',
+      body: 'Hi {contactPerson}, sales invoices for {clientName} for {month} {year} still pending. Contact {consultantName} urgently.',
     },
   },
   PURCHASE_FOLLOW_UP: {
     EMAIL: {
       subject: 'Reminder: Purchase Data Pending for {month} {year}',
-      body: "Dear {clientName},\n\nThis is a follow-up. We still haven't received your purchase/ITC data for {month} {year}. Please share urgently to avoid GSTR-3B filing delays.\n\nRegards,\nTeam",
+      body: "Dear {contactPerson},\n\nThis is a follow-up. We still haven't received purchase/ITC data for {clientName} for {month} {year}. Please share urgently to avoid GSTR-3B filing delays.\n\nRegards,\nTeam",
     },
     WHATSAPP: {
-      body: 'Hi {clientName}, following up — purchase/ITC data for {month} {year} is still pending. Please share asap.',
+      body: 'Hi {contactPerson}, following up — purchase/ITC data for {clientName} for {month} {year} is still pending. Please share asap.',
     },
     SMS: {
-      body: '{clientName}, purchase/ITC data for {month} {year} still pending. Contact {consultantName} urgently.',
+      body: 'Hi {contactPerson}, purchase/ITC data for {clientName} for {month} {year} still pending. Contact {consultantName} urgently.',
     },
   },
   GSTR1_DEADLINE: {
     EMAIL: {
       subject: 'Urgent: GSTR-1 Filing Deadline is {dueDate}',
-      body: 'Dear {clientName},\n\nThe GSTR-1 filing deadline is {dueDate}. Please submit your sales invoices to us immediately to avoid a late filing.\n\nRegards,\nTeam',
+      body: 'Dear {contactPerson},\n\nThe GSTR-1 filing deadline for {clientName} is {dueDate}. Please submit your sales invoices to us immediately to avoid a late filing.\n\nRegards,\nTeam',
     },
     WHATSAPP: {
-      body: 'Urgent {clientName}: GSTR-1 deadline is {dueDate}. Please submit your sales data to us immediately.',
+      body: 'Hi {contactPerson}, GSTR-1 deadline for {clientName} is {dueDate}. Please submit your sales data to us immediately.',
     },
     SMS: {
-      body: 'URGENT {clientName}: GSTR-1 deadline {dueDate}. Share sales data now. Call {consultantName}.',
+      body: 'Hi {contactPerson}, GSTR-1 deadline for {clientName} is {dueDate}. Share sales data now. Call {consultantName}.',
     },
   },
   GSTR3B_DEADLINE: {
     EMAIL: {
       subject: 'Urgent: GSTR-3B Filing Deadline is {dueDate}',
-      body: 'Dear {clientName},\n\nThe GSTR-3B filing deadline is {dueDate}. Please submit your purchase/ITC data to us immediately to avoid a late filing.\n\nRegards,\nTeam',
+      body: 'Dear {contactPerson},\n\nThe GSTR-3B filing deadline for {clientName} is {dueDate}. Please submit your purchase/ITC data to us immediately to avoid a late filing.\n\nRegards,\nTeam',
     },
     WHATSAPP: {
-      body: 'Urgent {clientName}: GSTR-3B deadline is {dueDate}. Please submit your purchase/ITC data to us immediately.',
+      body: 'Hi {contactPerson}, GSTR-3B deadline for {clientName} is {dueDate}. Please submit your purchase/ITC data to us immediately.',
     },
     SMS: {
-      body: 'URGENT {clientName}: GSTR-3B deadline {dueDate}. Share purchase data now. Call {consultantName}.',
+      body: 'Hi {contactPerson}, GSTR-3B deadline for {clientName} is {dueDate}. Share purchase data now. Call {consultantName}.',
     },
   },
 }
 
-// GET /api/reminder-templates (Admin only)
-router.get('/', authorize('ADMIN'), async (req: AuthRequest, res: Response) => {
+// GET /api/reminder-templates (all authenticated users)
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const templates = await prisma.reminderTemplate.findMany({
       where: { tenantId: req.user!.tenantId, isActive: true },

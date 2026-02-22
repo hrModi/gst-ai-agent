@@ -78,8 +78,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const daysToGstr3b = Math.max(0, Math.ceil((nextGstr3b.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
 
     // Recent activity (last 10 audit logs)
+    const activityWhere: any = { tenantId: req.user!.tenantId }
+    if (req.user!.role === 'CONSULTANT') activityWhere.userId = req.user!.id
     const recentActivity = await prisma.auditLog.findMany({
-      where: { tenantId: req.user!.tenantId },
+      where: activityWhere,
       include: {
         user: { select: { name: true } },
       },

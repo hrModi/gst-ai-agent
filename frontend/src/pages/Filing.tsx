@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../lib/api'
@@ -39,9 +40,21 @@ function getStatusBadge(status: string) {
   }
 }
 
+const STAGE_LABELS: Record<string, string> = {
+  NOT_STARTED: 'Not Started',
+  REMINDER_SENT: 'Reminder Sent',
+  DATA_RECEIVED: 'Data Received',
+  VALIDATING: 'Validating',
+  VALIDATION_FAILED: 'Validation Error',
+  VALIDATED: 'Validated',
+  JSON_GENERATED: 'JSON Generated',
+  READY_TO_FILE: 'Ready to File',
+  FILED: 'Filed',
+}
+
 function formatStatusLabel(status: string): string {
   if (!status) return 'Not Started'
-  return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  return STAGE_LABELS[status] ?? status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function getStageBadge(stage: string) {
@@ -68,6 +81,7 @@ function getStageBadge(stage: string) {
 export default function Filing() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
+  const [searchParams] = useSearchParams()
 
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -78,7 +92,7 @@ export default function Filing() {
 
   // Filters
   const [search, setSearch] = useState('')
-  const [stageFilter, setStageFilter] = useState('')
+  const [stageFilter, setStageFilter] = useState(searchParams.get('stage') || '')
   const [dataReceivedFilter, setDataReceivedFilter] = useState('')
   const [consultantFilter, setConsultantFilter] = useState('')
   const [consultants, setConsultants] = useState<{ id: string; name: string }[]>([])
@@ -255,7 +269,7 @@ export default function Filing() {
             <option value="REMINDER_SENT">Reminder Sent</option>
             <option value="DATA_RECEIVED">Data Received</option>
             <option value="VALIDATING">Validating</option>
-            <option value="VALIDATION_FAILED">Validation Failed</option>
+            <option value="VALIDATION_FAILED">Validation Error</option>
             <option value="VALIDATED">Validated</option>
             <option value="JSON_GENERATED">JSON Generated</option>
             <option value="READY_TO_FILE">Ready to File</option>
@@ -390,7 +404,15 @@ export default function Filing() {
                       </span>
                     </td>
                     <td className="sticky right-0 bg-white px-6 py-4 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        {(filing.stage === 'VALIDATION_FAILED' || filing.gstr1Status === 'VALIDATION_ERRORS') && (
+                          <Link
+                            to={`/invoices/${filing.clientId}?month=${month}&year=${year}`}
+                            className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 font-medium transition-colors"
+                          >
+                            View Errors &rarr;
+                          </Link>
+                        )}
                         {filing.gstr1Status !== 'filed' && (
                           <button
                             onClick={() => openArnModal(filing.clientId, (filing.tradeName || filing.legalName), 'GSTR1')}

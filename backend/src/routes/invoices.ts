@@ -9,7 +9,89 @@ import { AuthRequest } from '../types'
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage() })
 
-// All routes require authentication
+// GET /api/invoices/sample-template — public, no auth needed (generic file, no tenant data)
+router.get('/sample-template', (_req, res: Response) => {
+  try {
+  const wb = XLSX.utils.book_new()
+
+  // --- Sheet 1: Sample Data ---
+  const sampleRows = [
+    [
+      'Invoice Number', 'Invoice Date', 'Buyer GSTIN', 'Buyer Name', 'Place of Supply',
+      'Reverse Charge', 'Invoice Value', 'Taxable Value', 'Tax Rate',
+      'IGST Amount', 'CGST Amount', 'SGST Amount', 'Cess Amount',
+      'HSN Code', 'Description', 'Note Type', 'Original Invoice', 'Export Type',
+    ],
+    // B2B — intra-state (CGST + SGST)
+    ['INV-001', '15-01-2026', '27AABCU9603R1ZX', '', '27', '', 23600, 20000, 18, 0, 1800, 1800, 0, '9983', 'Consulting Services', '', '', ''],
+    // B2B — inter-state (IGST)
+    ['INV-002', '16-01-2026', '06AABCU9603R1ZX', '', '06', '', 59000, 50000, 18, 9000, 0, 0, 0, '8471', 'IT Equipment', '', '', ''],
+    // B2CS — small unregistered buyer (taxable value ≤ 2,50,000)
+    ['INV-003', '17-01-2026', '', 'Walk-in Customer', '27', '', 5900, 5000, 18, 0, 450, 450, 0, '9983', 'Advisory', '', '', ''],
+    // B2CL — large unregistered buyer (taxable value > 2,50,000)
+    ['INV-004', '18-01-2026', '', 'ABC Traders', '07', '', 354000, 300000, 18, 0, 27000, 27000, 0, '9983', 'Bulk Consulting', '', '', ''],
+    // CDNR — credit note against a B2B invoice
+    ['CN-001', '20-01-2026', '27AABCU9603R1ZX', '', '27', '', -2360, -2000, 18, 0, -180, -180, 0, '9983', 'Credit Note', 'CREDIT', 'INV-001', ''],
+    // EXP — export without payment of tax
+    ['EXP-001', '22-01-2026', '', 'Global Corp USA', '', '', 75000, 75000, 0, 0, 0, 0, 0, '8471', 'Software Export', '', '', 'WOPAY'],
+  ]
+
+  const ws1 = XLSX.utils.aoa_to_sheet(sampleRows)
+  ws1['!cols'] = [
+    { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 16 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 },
+    { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 12 },
+    { wch: 10 }, { wch: 22 }, { wch: 12 }, { wch: 16 }, { wch: 12 },
+  ]
+  XLSX.utils.book_append_sheet(wb, ws1, 'Sample Data')
+
+  // --- Sheet 2: Instructions ---
+  const instructionRows = [
+    ['Column', 'Required?', 'Format / Allowed Values', 'Notes'],
+    ['Invoice Number', 'REQUIRED', 'Text', 'Must be unique within the same client + month + year'],
+    ['Invoice Date', 'REQUIRED', 'DD-MM-YYYY', 'Must be a real date within the filing month; no future dates'],
+    ['Buyer GSTIN', 'REQUIRED for B2B', '15-char GST format', 'e.g. 27AABCU9603R1ZX — leave blank for B2C/exports'],
+    ['Buyer Name', 'Optional', 'Text', 'Recommended for B2C transactions'],
+    ['Place of Supply', 'Optional', '2-digit state code (01–38)', 'e.g. 27 = Maharashtra, 06 = Haryana, 07 = Delhi'],
+    ['Reverse Charge', 'Optional', 'Y or blank', 'Y = reverse charge applies'],
+    ['Invoice Value', 'Optional', 'Number (INR)', 'Total invoice value including tax'],
+    ['Taxable Value', 'REQUIRED', 'Number (INR)', 'Value before tax — must be > 0'],
+    ['Tax Rate', 'REQUIRED for tax check', 'Number (percentage)', 'e.g. 18 for 18% GST'],
+    ['IGST Amount', 'Conditional', 'Number (INR)', 'Fill for inter-state transactions; leave 0 for intra-state'],
+    ['CGST Amount', 'Conditional', 'Number (INR)', 'Fill for intra-state; must equal SGST; leave 0 for inter-state'],
+    ['SGST Amount', 'Conditional', 'Number (INR)', 'Fill for intra-state; must equal CGST; leave 0 for inter-state'],
+    ['Cess Amount', 'Optional', 'Number (INR)', 'Leave 0 if not applicable'],
+    ['HSN Code', 'Optional*', '4, 6, or 8 digit number', '*Recommended; must be numeric if provided'],
+    ['Description', 'Optional', 'Text', 'Item or service description'],
+    ['Note Type', 'For credit/debit notes', 'CREDIT or DEBIT', 'Classifies row as CDNR — fill Original Invoice too'],
+    ['Original Invoice', 'For CDNR only', 'Text', 'Invoice number being reversed'],
+    ['Export Type', 'For exports only', 'WPAY or WOPAY', 'WPAY = with payment of tax, WOPAY = without payment'],
+    [''],
+    ['Transaction Type Auto-Classification', '', '', ''],
+    ['Type', 'Condition', '', ''],
+    ['CDNR', 'Note Type = CREDIT or DEBIT', '', ''],
+    ['EXP', 'Export Type is present (WPAY or WOPAY)', '', ''],
+    ['B2B', 'Buyer GSTIN is present and valid', '', ''],
+    ['B2CL', 'No GSTIN and Taxable Value > 2,50,000', '', ''],
+    ['B2CS', 'No GSTIN and Taxable Value ≤ 2,50,000', '', ''],
+  ]
+
+  const ws2 = XLSX.utils.aoa_to_sheet(instructionRows)
+  ws2['!cols'] = [{ wch: 20 }, { wch: 22 }, { wch: 28 }, { wch: 55 }]
+  XLSX.utils.book_append_sheet(wb, ws2, 'Instructions')
+
+  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+
+  res.setHeader('Content-Disposition', 'attachment; filename="sales-data-sample.xlsx"')
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  res.send(buffer)
+  } catch (error) {
+    console.error('Sample template error:', error)
+    res.status(500).json({ error: 'Failed to generate sample template' })
+  }
+})
+
+// All remaining routes require authentication
 router.use(authenticate)
 
 async function runValidation(clientId: string, monthNum: number, yearNum: number, tenantId: string) {
