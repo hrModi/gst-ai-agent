@@ -16,7 +16,7 @@ export async function pollNewMessages(
   const gmail = google.gmail({ version: 'v1', auth })
 
   // Build query — only look at subject-matching emails so unrelated inbox mail is untouched
-  let q = 'subject:GSTR1-DATA'
+  let q = 'subject:GSTR1-DATA OR subject:PURCHASE-DATA'
   if (lastPollAt) {
     // Gmail 'after' uses Unix timestamp (seconds)
     const unixTs = Math.floor(lastPollAt.getTime() / 1000)
@@ -108,20 +108,41 @@ export async function downloadAttachment(
 }
 
 /**
- * Parse a GSTR1-DATA email subject.
- * Expected format: "GSTR1-DATA | {GSTIN} | {MM-YYYY}"
- * Returns null if the subject doesn't match the pattern.
+ * Parse a GSTR1-DATA or PURCHASE-DATA email subject.
+ * Expected formats:
+ *   "GSTR1-DATA | {GSTIN} | {MM-YYYY}"
+ *   "PURCHASE-DATA | {GSTIN} | {MM-YYYY}"
+ * Returns null if the subject doesn't match either pattern.
  */
-export function parseSubject(subject: string): { gstin: string; month: number; year: number } | null {
-  // Allow extra text after the pattern
-  const match = subject.match(/GSTR1-DATA\s*\|\s*([A-Z0-9]{15})\s*\|\s*(\d{2})-(\d{4})/i)
-  if (!match) return null
+export function parseSubject(
+  subject: string
+): { type: 'GSTR1' | 'PURCHASE'; gstin: string; month: number; year: number } | null {
+  // Try GSTR1-DATA
+  const gstr1Match = subject.match(/GSTR1-DATA\s*\|\s*([A-Z0-9]{15})\s*\|\s*(\d{2})-(\d{4})/i)
+  if (gstr1Match) {
+    const gstin = gstr1Match[1].toUpperCase()
+    const month = parseInt(gstr1Match[2], 10)
+    const year = parseInt(gstr1Match[3], 10)
+    if (month < 1 || month > 12) return null
+    return { type: 'GSTR1', gstin, month, year }
+  }
 
-  const gstin = match[1].toUpperCase()
-  const month = parseInt(match[2], 10)
-  const year = parseInt(match[3], 10)
+  // Try PURCHASE-DATA
+  const purchaseMatch = subject.match(/PURCHASE-DATA\s*\|\s*([A-Z0-9]{15})\s*\|\s*(\d{2})-(\d{4})/i)
+  if (purchaseMatch) {
+    const gstin = purchaseMatch[1].toUpperCase()
+    const month = parseInt(purchaseMatch[2], 10)
+    const year = parseInt(purchaseMatch[3], 10)
+    if (month < 1 || month > 12) return null
+    return { type: 'PURCHASE', gstin, month, year }
+  }
 
-  if (month < 1 || month > 12) return null
+  return null
+}
 
-  return { gstin, month, year }
+// Backward-compatible helper for callers that only need GSTR1 check
+export function parseGstr1Subject(subject: string): { gstin: string; month: number; year: number } | null {
+  const result = parseSubject(subject)
+  if (!result || result.type !== 'GSTR1') return null
+  return { gstin: result.gstin, month: result.month, year: result.year }
 }

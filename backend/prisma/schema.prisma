@@ -97,6 +97,10 @@ model Client {
   documents     Document[]
   reminders     Reminder[]
   inboxMessages InboxMessage[]
+  purchaseData          PurchaseData[]
+  gstr2bEntries         Gstr2bEntry[]
+  reconciliationReports ReconciliationReport[]
+  gstr3bSummaries       Gstr3bSummary[]
 
   @@unique([tenantId, gstin])
   @@map("clients")
@@ -346,6 +350,8 @@ model InboxMessage {
   errorSummary    String?  @map("error_summary")
   createdAt       DateTime @default(now()) @map("created_at")
 
+  dataType      String   @default("GSTR1") @map("data_type")
+
   tenant Tenant @relation(fields: [tenantId], references: [id])
   client Client @relation(fields: [clientId], references: [id])
 
@@ -367,4 +373,120 @@ model ReminderTemplate {
 
   @@unique([tenantId, reminderType, channel])
   @@map("reminder_templates")
+}
+
+model PurchaseData {
+  id               String               @id @default(uuid())
+  clientId         String               @map("client_id")
+  month            Int
+  year             Int
+  invoiceNumber    String               @map("invoice_number")
+  invoiceDate      String               @map("invoice_date")
+  supplierGstin    String               @map("supplier_gstin")
+  supplierName     String?              @map("supplier_name")
+  invoiceValue     Decimal              @map("invoice_value") @db.Decimal(15, 2)
+  taxableValue     Decimal              @map("taxable_value") @db.Decimal(15, 2)
+  igstAmount       Decimal              @default(0) @map("igst_amount") @db.Decimal(15, 2)
+  cgstAmount       Decimal              @default(0) @map("cgst_amount") @db.Decimal(15, 2)
+  sgstAmount       Decimal              @default(0) @map("sgst_amount") @db.Decimal(15, 2)
+  cessAmount       Decimal              @default(0) @map("cess_amount") @db.Decimal(15, 2)
+  hsnCode          String?              @map("hsn_code")
+  validationStatus ValidationStatusEnum @default(PENDING) @map("validation_status")
+  rowNumber        Int?                 @map("row_number")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  client           Client               @relation(fields: [clientId], references: [id])
+  validationErrors PurchaseValidationError[]
+
+  @@unique([clientId, month, year, supplierGstin, invoiceNumber])
+  @@map("purchase_data")
+}
+
+model PurchaseValidationError {
+  id             String        @id @default(uuid())
+  purchaseDataId String        @map("purchase_data_id")
+  errorType      String        @map("error_type")
+  fieldName      String        @map("field_name")
+  errorMessage   String        @map("error_message")
+  severity       ErrorSeverity @default(ERROR)
+  isResolved     Boolean       @default(false) @map("is_resolved")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  purchaseData PurchaseData @relation(fields: [purchaseDataId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_validation_errors")
+}
+
+model Gstr2bEntry {
+  id            String   @id @default(uuid())
+  clientId      String   @map("client_id")
+  month         Int
+  year          Int
+  supplierGstin String   @map("supplier_gstin")
+  supplierName  String?  @map("supplier_name")
+  invoiceNumber String   @map("invoice_number")
+  invoiceDate   String   @map("invoice_date")
+  invoiceValue  Decimal  @map("invoice_value") @db.Decimal(15, 2)
+  taxableValue  Decimal  @map("taxable_value") @db.Decimal(15, 2)
+  igstAmount    Decimal  @default(0) @map("igst_amount") @db.Decimal(15, 2)
+  cgstAmount    Decimal  @default(0) @map("cgst_amount") @db.Decimal(15, 2)
+  sgstAmount    Decimal  @default(0) @map("sgst_amount") @db.Decimal(15, 2)
+  cessAmount    Decimal  @default(0) @map("cess_amount") @db.Decimal(15, 2)
+  itcAvailable  Decimal  @default(0) @map("itc_available") @db.Decimal(15, 2)
+  matchStatus   String   @default("PENDING") @map("match_status")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, month, year, supplierGstin, invoiceNumber])
+  @@map("gstr2b_entries")
+}
+
+model ReconciliationReport {
+  id                String   @id @default(uuid())
+  clientId          String   @map("client_id")
+  month             Int
+  year              Int
+  totalPurchase     Int      @map("total_purchase")
+  totalGstr2b       Int      @map("total_gstr2b")
+  matched           Int
+  mismatched        Int
+  missingInPurchase Int      @map("missing_in_purchase")
+  extraInPurchase   Int      @map("extra_in_purchase")
+  totalItcAvailable Decimal  @map("total_itc_available") @db.Decimal(15, 2)
+  totalItcMismatch  Decimal  @map("total_itc_mismatch") @db.Decimal(15, 2)
+  generatedAt       DateTime @default(now()) @map("generated_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, month, year])
+  @@map("reconciliation_reports")
+}
+
+model Gstr3bSummary {
+  id                  String   @id @default(uuid())
+  clientId            String   @map("client_id")
+  month               Int
+  year                Int
+  outwardTaxableValue Decimal  @map("outward_taxable_value") @db.Decimal(15, 2)
+  outwardIgst         Decimal  @map("outward_igst") @db.Decimal(15, 2)
+  outwardCgst         Decimal  @map("outward_cgst") @db.Decimal(15, 2)
+  outwardSgst         Decimal  @map("outward_sgst") @db.Decimal(15, 2)
+  itcIgst             Decimal  @map("itc_igst") @db.Decimal(15, 2)
+  itcCgst             Decimal  @map("itc_cgst") @db.Decimal(15, 2)
+  itcSgst             Decimal  @map("itc_sgst") @db.Decimal(15, 2)
+  netIgst             Decimal  @map("net_igst") @db.Decimal(15, 2)
+  netCgst             Decimal  @map("net_cgst") @db.Decimal(15, 2)
+  netSgst             Decimal  @map("net_sgst") @db.Decimal(15, 2)
+  classification      String
+  jsonGenerated       Boolean  @default(false) @map("json_generated")
+  generatedAt         DateTime @default(now()) @map("generated_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, month, year])
+  @@map("gstr3b_summaries")
 }

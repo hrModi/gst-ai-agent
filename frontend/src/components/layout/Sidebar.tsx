@@ -11,6 +11,7 @@ const navItems = [
   { to: '/json-generator', label: 'JSON Generator', icon: '\u27A4' },
   { to: '/reminders', label: 'Reminders', icon: '\u266A' },
   { to: '/inbox', label: 'Inbox Monitor', icon: '\u2709' },
+  { to: '/reconciliation', label: 'Reconciliation', icon: '\u21C4' },
   { to: '/documents', label: 'Documents', icon: '\u2637' },
 ]
 

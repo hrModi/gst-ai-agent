@@ -11,7 +11,7 @@
  */
 import { prisma } from '../../lib/prisma'
 import { pollNewMessages, fetchMessage, downloadAttachment, parseSubject } from '../gmail'
-import { processClientData } from '../pipeline'
+import { processClientData, processPurchaseData } from '../pipeline'
 
 export async function runInboxPollJob(): Promise<void> {
   console.log('[InboxPoll] Starting inbox poll job...')
@@ -71,15 +71,15 @@ async function processInboxMessage(tenantId: string, messageId: string): Promise
     const parsed = await fetchMessage(tenantId, messageId)
     const { fromEmail, subject, receivedAt, parts } = parsed
 
-    // 2. Parse subject — must match GSTR1-DATA | {GSTIN} | {MM-YYYY}
+    // 2. Parse subject — must match GSTR1-DATA | {GSTIN} | {MM-YYYY} or PURCHASE-DATA | {GSTIN} | {MM-YYYY}
     const subjectData = parseSubject(subject)
     if (!subjectData) {
-      // Subject has "GSTR1-DATA" but not the right format — log and skip
+      // Subject has keyword but not the right format — log and skip
       console.log(`[InboxPoll] Message ${messageId}: Subject "${subject}" doesn't match expected format. Skipping.`)
       return
     }
 
-    const { gstin, month, year } = subjectData
+    const { type: dataType, gstin, month, year } = subjectData
 
     // 3. Find matching client by GSTIN + tenantId
     const client = await prisma.client.findFirst({
@@ -118,7 +118,7 @@ async function processInboxMessage(tenantId: string, messageId: string): Promise
       return
     }
 
-    // 5. Create InboxMessage with RECEIVED status
+    // 5. Create InboxMessage with PROCESSING status
     const inboxMsg = await prisma.inboxMessage.create({
       data: {
         tenantId,
@@ -132,25 +132,39 @@ async function processInboxMessage(tenantId: string, messageId: string): Promise
         attachmentCount: parts.length,
         status: 'PROCESSING',
         pipelineStage: 'DATA_RECEIVED',
+        dataType,
       },
     })
 
-    console.log(`[InboxPoll] Created InboxMessage ${inboxMsg.id} for client ${client.id} (${gstin} ${month}/${year})`)
+    console.log(`[InboxPoll] Created InboxMessage ${inboxMsg.id} for client ${client.id} (${gstin} ${month}/${year} type=${dataType})`)
 
     // 6. Download attachment
     const fileBuffer = await downloadAttachment(tenantId, messageId, attachment.attachmentId)
 
-    // 7. Run pipeline (fire-and-forget pattern within job — but we await so status updates correctly)
-    await processClientData(
-      client.id,
-      month,
-      year,
-      fileBuffer,
-      attachment.filename,
-      'EMAIL',
-      tenantId,
-      inboxMsg.id
-    )
+    // 7. Route to appropriate pipeline based on data type
+    if (dataType === 'PURCHASE') {
+      await processPurchaseData(
+        client.id,
+        month,
+        year,
+        fileBuffer,
+        attachment.filename,
+        'EMAIL',
+        tenantId,
+        inboxMsg.id
+      )
+    } else {
+      await processClientData(
+        client.id,
+        month,
+        year,
+        fileBuffer,
+        attachment.filename,
+        'EMAIL',
+        tenantId,
+        inboxMsg.id
+      )
+    }
 
     console.log(`[InboxPoll] Pipeline complete for InboxMessage ${inboxMsg.id}`)
   } catch (err: any) {

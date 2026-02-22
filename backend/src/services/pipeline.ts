@@ -10,6 +10,8 @@ import { prisma } from '../lib/prisma'
 import { validateInvoice, classifyTransaction } from './validation/invoice'
 import { generateGSTR1 } from './gstr1/generator'
 import { notifyConsultant } from './notification'
+import { parsePurchaseFile } from './purchase/parser'
+import { runPurchaseValidation } from './purchase/validation-runner'
 
 // ─────────────────────────────────────────────
 // Shared helpers
@@ -292,6 +294,100 @@ export async function processClientData(
       update: { stage: 'VALIDATION_FAILED', stageUpdatedAt: new Date() },
       create: { clientId, month, year, stage: 'VALIDATION_FAILED', stageUpdatedAt: new Date() },
     }).catch(console.error)
+
+    throw err
+  }
+}
+
+// ─────────────────────────────────────────────
+// Purchase data pipeline
+// ─────────────────────────────────────────────
+
+/**
+ * Full purchase data pipeline: parse → store → validate → notify.
+ *
+ * @param clientId        DB UUID of the client
+ * @param month           1–12
+ * @param year            e.g. 2026
+ * @param fileBuffer      Raw bytes of the uploaded XLSX/CSV
+ * @param fileName        Original file name
+ * @param source          'EMAIL' | 'MANUAL'
+ * @param tenantId        Tenant UUID
+ * @param inboxMessageId  Optional InboxMessage ID to update status on completion
+ */
+export async function processPurchaseData(
+  clientId: string,
+  month: number,
+  year: number,
+  fileBuffer: Buffer,
+  fileName: string,
+  source: 'EMAIL' | 'MANUAL',
+  tenantId: string,
+  inboxMessageId?: string
+): Promise<PipelineResult> {
+  const logActivity = async (activityType: string, description: string, metadata?: object) => {
+    await prisma.yakshActivity.create({
+      data: { tenantId, clientId, activityType, description, metadata: metadata as any },
+    }).catch(console.error)
+  }
+
+  try {
+    // 1. Parse file
+    const mappedRows = parsePurchaseFile(fileBuffer, fileName, clientId, month, year)
+
+    // 2. Replace existing rows for this period
+    await prisma.purchaseData.deleteMany({ where: { clientId, month, year } })
+    await prisma.purchaseData.createMany({
+      data: mappedRows.map((row) => ({ ...row, validationStatus: 'PENDING' })),
+    })
+
+    await logActivity(
+      'PURCHASE_UPLOAD',
+      `Purchase data uploaded for ${month}/${year} (${source}, ${mappedRows.length} rows)`
+    )
+
+    // 3. Run validation
+    const { valid, invalid, totalErrors, total } = await runPurchaseValidation(clientId, month, year, tenantId)
+
+    const stage = invalid === 0 ? 'PURCHASE_VALIDATED' : 'PURCHASE_VALIDATION_FAILED'
+
+    await logActivity(
+      'PURCHASE_VALIDATED',
+      `Purchase data validated for ${month}/${year}: ${valid} valid, ${invalid} invalid`
+    )
+
+    // 4. Notify consultant if errors
+    if (invalid > 0) {
+      await notifyConsultant(clientId, 'VALIDATION_FAILED', {
+        invalid,
+        total,
+        month,
+        year,
+      })
+    }
+
+    // 5. Update inbox message if applicable
+    if (inboxMessageId) {
+      await prisma.inboxMessage.update({
+        where: { id: inboxMessageId },
+        data: {
+          status: invalid === 0 ? 'PROCESSED' : 'PROCESSED',
+          pipelineStage: stage,
+          errorSummary: invalid > 0 ? `${invalid} purchase rows with errors` : null,
+        },
+      }).catch(console.error)
+    }
+
+    return { valid, invalid, total, stage }
+  } catch (err: any) {
+    console.error('[PurchasePipeline] Error:', err)
+
+    if (inboxMessageId) {
+      await prisma.inboxMessage.update({
+        where: { id: inboxMessageId },
+        data: { status: 'FAILED', errorSummary: err.message || 'Pipeline error' },
+      }).catch(console.error)
+    }
 
     throw err
   }

@@ -18,6 +18,9 @@ import agentActivityRoutes from './routes/agent-activity'
 import systemSettingsRoutes from './routes/system-settings'
 import reminderTemplateRoutes from './routes/reminder-templates'
 import inboxRoutes from './routes/inbox'
+import purchaseRoutes from './routes/purchase'
+import gstr2bRoutes from './routes/gstr2b'
+import gstr3bRoutes from './routes/gstr3b'
 
 const app = express()
 
@@ -46,6 +49,9 @@ app.use('/api/agent-activity', agentActivityRoutes)
 app.use('/api/system-settings', systemSettingsRoutes)
 app.use('/api/reminder-templates', reminderTemplateRoutes)
 app.use('/api/inbox', inboxRoutes)
+app.use('/api/purchase', purchaseRoutes)
+app.use('/api/gstr2b', gstr2bRoutes)
+app.use('/api/gstr3b', gstr3bRoutes)
 
 // Health check
 app.get('/api/health', (_req, res) => {

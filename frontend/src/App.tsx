@@ -15,6 +15,7 @@ import Documents from './pages/Documents'
 import Settings from './pages/Settings'
 import EditClient from './pages/EditClient'
 import InboxMonitor from './pages/InboxMonitor'
+import Reconciliation from './pages/Reconciliation'
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
@@ -148,6 +149,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <InboxMonitor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reconciliation"
+        element={
+          <ProtectedRoute>
+            <Reconciliation />
           </ProtectedRoute>
         }
       />

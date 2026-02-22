@@ -24,6 +24,7 @@ interface InboxMessage {
   status: string
   pipelineStage: string | null
   errorSummary: string | null
+  dataType: string
   client: { id: string; legalName: string; gstin: string }
 }
 
@@ -242,7 +243,7 @@ export default function InboxMonitor() {
             {gmailStatus?.connected && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-xs text-gray-400">
-                  Yaksh monitors this inbox for emails with subject: <code className="bg-gray-100 px-1 rounded">GSTR1-DATA | {'<'}GSTIN{'>'} | MM-YYYY</code>.
+                  Yaksh monitors this inbox for emails matching: <code className="bg-gray-100 px-1 rounded">GSTR1-DATA | {'<'}GSTIN{'>'} | MM-YYYY</code> (sales) or <code className="bg-gray-100 px-1 rounded">PURCHASE-DATA | {'<'}GSTIN{'>'} | MM-YYYY</code> (purchase).
                   Only emails matching a client GSTIN are stored here.
                 </p>
               </div>
@@ -287,7 +288,7 @@ export default function InboxMonitor() {
               <div className="text-4xl mb-3">✉</div>
               <p className="text-sm font-medium text-gray-500">Yaksh hasn't received any data emails yet.</p>
               <p className="text-xs text-gray-400 mt-1">
-                Clients should email their sales data with subject: GSTR1-DATA | GSTIN | MM-YYYY
+                Clients should email sales data with subject: <code className="bg-gray-100 px-1 rounded">GSTR1-DATA | GSTIN | MM-YYYY</code> or purchase data with <code className="bg-gray-100 px-1 rounded">PURCHASE-DATA | GSTIN | MM-YYYY</code>
               </p>
             </div>
           ) : (
@@ -296,6 +297,7 @@ export default function InboxMonitor() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">From</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
@@ -309,6 +311,15 @@ export default function InboxMonitor() {
                   <tbody className="divide-y divide-gray-200">
                     {messages.map((msg) => (
                       <tr key={msg.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            msg.dataType === 'PURCHASE'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {msg.dataType === 'PURCHASE' ? 'Purchase' : 'GSTR-1'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate" title={msg.fromEmail}>
                           {msg.fromEmail}
                         </td>
