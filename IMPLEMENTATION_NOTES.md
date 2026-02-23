@@ -10,8 +10,8 @@
 | 1D | ✅ Complete | Gmail inbox poller. InboxMessage model. InboxMonitor.tsx page. Gmail enable/disable via sheet-sync.ts. |
 | 1E | ✅ Complete | Auto pipeline: email → parse → validate → JSON → notify. pipeline.ts + notification.ts. |
 | 1F | ⏳ Pending | Claude AI (Yaksh intelligence). yaksh.ts service. Anthropic SDK. |
-| 1G | ⏳ Pending | GSTR-2B upload + reconciliation. 2 new DB tables. Reconciliation.tsx page. |
-| 1H | ⏳ Pending | GSTR-3B computation. NIL/PAYMENT/CREDIT classification. Gstr3bView.tsx. |
+| 1G | ✅ Complete | GSTR-2B upload + purchase register reconciliation. 4 new DB models. Reconciliation.tsx 4-tab page. |
+| 1H | ✅ Complete | GSTR-3B computation. NIL/PAYMENT/CREDIT classification. GSTR-3B tab in Reconciliation.tsx. |
 | 1I | ⏳ Pending | Yaksh Dashboard page (/yaksh). Full activity monitor. |
 
 ---
@@ -209,10 +209,10 @@
 - Gmail polling uses the already-connected Google account (`SheetSyncConfig.googleEmail`)
 
 **gmail.ts functions:**
-- `pollNewMessages(tenantId, lastPollAt)` — fetches messages received after `lastPollAt`
+- `pollNewMessages(tenantId, lastPollAt)` — fetches messages received after `lastPollAt`; query includes `GSTR1-DATA OR PURCHASE-DATA` subjects
 - `fetchMessage(auth, messageId)` — full message with headers + parts
 - `downloadAttachment(auth, messageId, attachmentId)` — returns `Buffer`
-- `parseSubject(subject)` — parses `GSTR1-DATA | {GSTIN} | {MM-YYYY}` format; returns `null` for non-matching subjects
+- `parseSubject(subject)` — parses both `GSTR1-DATA | {GSTIN} | {MM-YYYY}` and `PURCHASE-DATA | {GSTIN} | {MM-YYYY}` formats; returns `{ type: 'GSTR1' | 'PURCHASE', gstin, month, year }` or `null`
 
 **SheetSyncConfig additions (no new table):**
 - `gmailEnabled Boolean @default(false)`
@@ -225,8 +225,10 @@
 
 **Inbox poll job (`backend/src/services/jobs/inbox-poll-job.ts`):**
 - Runs every 5 minutes via scheduler
-- For each tenant with `gmailEnabled: true`: calls `pollNewMessages()`, processes matched emails via `processClientData()`, updates `gmailLastPollAt`
+- For each tenant with `gmailEnabled: true`: calls `pollNewMessages()`, processes matched emails, updates `gmailLastPollAt`
+- Routes by `dataType`: `GSTR1` → `processClientData()`; `PURCHASE` → `processPurchaseData()`
 - Unrecognised GSTINs → `YakshActivity ERROR` only (no `InboxMessage` record stored)
+- `InboxMessage` stores `dataType` field (`GSTR1` | `PURCHASE`) for display in InboxMonitor
 
 **Inbox API (`backend/src/routes/inbox.ts`):**
 - `GET /api/inbox` — list `InboxMessage` records for tenant (all roles)
@@ -245,6 +247,7 @@
 - `parseInvoiceFile(buffer, fileName)` — parses XLSX/CSV buffer into invoice rows
 - `runValidation(clientId, month, year, tenantId)` — shared validation runner (extracted from `invoices.ts`); also called by upload handler fire-and-forget
 - `processClientData(clientId, month, year, buffer, fileName, source, tenantId, inboxMessageId?)` — full orchestration: parse → store (deleteMany + createMany) → upsert `DATA_RECEIVED` → `runValidation()` → if clean: `generateGSTR1()` + `notifyConsultant('JSON_READY')` → else: `notifyConsultant('VALIDATION_FAILED')`
+- `processPurchaseData(clientId, month, year, buffer, fileName, source, tenantId, inboxMessageId?)` — purchase pipeline: parse → store → `runPurchaseValidation()` → `notifyConsultant` on errors
 
 **notification.ts:**
 - `notifyConsultant(clientId, event, data)` — reads client `notifyEmail`/`notifyWhatsapp` prefs, sends email + WhatsApp, logs `YakshActivity` with `activityType: NOTIFICATION_SENT`
@@ -252,6 +255,80 @@
 
 **invoices.ts integration:**
 - Upload handler now calls `processClientData()` fire-and-forget (same behaviour as before but now via shared pipeline)
+
+---
+
+### Purchase Data (`backend/src/routes/purchase.ts`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/purchase/sample-template` | Download purchase register XLSX template (no auth) |
+| POST | `/api/purchase/upload` | Upload purchase register → fire-and-forget validation |
+| GET | `/api/purchase/status` | Polling: `?clientId&month&year` → `{ validating, pending, valid, invalid, total }` |
+| POST | `/api/purchase/validate` | Manual re-validate existing rows |
+| GET | `/api/purchase/:clientId` | List rows with optional `validationStatus` filter |
+
+**Services:**
+- `backend/src/services/purchase/parser.ts` — `parsePurchaseFile()` — reads Supplier GSTIN, Supplier Name, Invoice Number, Invoice Date, Invoice Value, Taxable Value, IGST/CGST/SGST/Cess, HSN Code columns
+- `backend/src/services/purchase/validator.ts` — `validatePurchaseRow()` — GSTIN format, required fields, date format, CGST=SGST, no mixed IGST+CGST/SGST, HSN 4/6/8 digit, duplicate detection
+- `backend/src/services/purchase/validation-runner.ts` — `runPurchaseValidation()` — DB-aware runner; extracted to avoid circular imports between `routes/purchase.ts` and `services/pipeline.ts`
+
+---
+
+### GSTR-2B Reconciliation (`backend/src/routes/gstr2b.ts`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/gstr2b/upload` | Upload GSTR-2B (JSON or XLSX auto-detected) |
+| GET | `/api/gstr2b/status` | Polling: `?clientId&month&year` → `{ total, ready }` |
+| GET | `/api/gstr2b/report/:clientId` | Get `ReconciliationReport` |
+| POST | `/api/gstr2b/reconcile` | Run/re-run reconciliation |
+| GET | `/api/gstr2b/:clientId` | List entries with optional `matchStatus` filter |
+
+**Services:**
+- `backend/src/services/gstr2b/parser.ts` — `parseGstr2bFile()` — auto-detects JSON (`data.docdata.b2b[].inv[]`) vs XLSX format
+- `backend/src/services/gstr2b/reconciler.ts` — `runReconciliation()` — matches on `supplierGstin::invoiceNumber` with ±1 INR tolerance → MATCHED / MISMATCHED / MISSING_IN_PURCHASE / EXTRA_IN_PURCHASE; upserts `ReconciliationReport`
+
+**Match statuses:** `MATCHED` (within ±1 INR all fields) / `MISMATCHED` (found but amounts differ) / `MISSING_IN_PURCHASE` (in GSTR-2B but not purchase register) / `EXTRA_IN_PURCHASE` (in purchase register but not GSTR-2B, creates synthetic Gstr2bEntry)
+
+---
+
+### GSTR-3B Computation (`backend/src/routes/gstr3b.ts`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/gstr3b/generate` | Compute GSTR-3B (requires prior reconciliation) |
+| GET | `/api/gstr3b/download` | Re-download GSTR-3B JSON as file attachment |
+| GET | `/api/gstr3b/:clientId` | Get `Gstr3bSummary` |
+
+**Services:**
+- `backend/src/services/gstr3b/generator.ts` — `generateGSTR3B()` — sums output tax from VALID `InvoiceData`, ITC from MATCHED `Gstr2bEntry` only; net = output − ITC; classification: NIL / PAYMENT / CREDIT; upserts `Gstr3bSummary`; updates `FilingStatus.gstr3bStatus = 'JSON_GENERATED'`; filename: `{GSTIN}_{MMYYYY}_GSTR3B.json`
+
+---
+
+### Reconciliation Frontend (`frontend/src/pages/Reconciliation.tsx`)
+
+4-tab page at `/reconciliation`:
+1. **Purchase Data** — file upload + polling state machine → `POST /api/purchase/upload` + `GET /api/purchase/status`; sample template download
+2. **GSTR-2B Upload** — JSON/XLSX upload → `POST /api/gstr2b/upload` + `GET /api/gstr2b/status`; shows entry count on completion
+3. **Reconciliation** — "Run Reconciliation" button; 8 summary stat cards (Total Purchase, Total GSTR-2B, Matched, Mismatched, Missing in Purchase, Extra in Purchase, Match Rate %, Eligible ITC); results table with matchStatus filter (All/Matched/Mismatched/Missing/Extra); badge colors: MATCHED=green, MISMATCHED=orange, MISSING=red, EXTRA=gray
+4. **GSTR-3B** — Tax table (Output Tax / ITC / Net Payable per IGST/CGST/SGST); classification badge NIL/PAYMENT/CREDIT; Generate + Download JSON buttons; Generate blocked until reconciliation complete
+
+---
+
+### New DB Models (Phase 1G+1H)
+
+5 new Prisma models added in migration `20260223000000_add_gstr2b_reconciliation`:
+
+| Model | Key fields |
+|-------|-----------|
+| `PurchaseData` | `clientId, month, year, supplierGstin, invoiceNumber, validationStatus` — unique on `(clientId, month, year, supplierGstin, invoiceNumber)` |
+| `PurchaseValidationError` | `purchaseDataId, errorType, fieldName, severity` |
+| `Gstr2bEntry` | `clientId, month, year, supplierGstin, invoiceNumber, itcAvailable, matchStatus` |
+| `ReconciliationReport` | `clientId, month, year, matched, mismatched, missingInPurchase, extraInPurchase, totalItcAvailable` |
+| `Gstr3bSummary` | `clientId, month, year, outwardIgst/Cgst/Sgst, itcIgst/Cgst/Sgst, netIgst/Cgst/Sgst, classification, jsonGenerated` |
+
+`InboxMessage` model also gained `dataType String @default("GSTR1")` column.
 
 ---
 
@@ -270,18 +347,20 @@
 **Current routes:**
 - `/dashboard`, `/clients`, `/clients/new`, `/clients/:id`, `/clients/:id/edit`
 - `/filing`, `/invoices/upload`, `/invoices/:clientId`, `/json-generator`
-- `/reminders`, `/inbox`, `/documents`, `/settings` (admin only)
+- `/reminders`, `/inbox`, `/reconciliation`, `/documents`, `/settings` (admin only)
 
 **Coming Soon routes (ComingSoon.tsx placeholder):**
-- `/reconciliation` — GSTR-2B Reconciliation (Phase 1G)
-- `/gstr3b` — GSTR-3B Preparation (Phase 1H)
 - `/yaksh` — Yaksh Activity Dashboard (Phase 1I)
 
 **`frontend/src/pages/ComingSoon.tsx`** — shared placeholder component; takes `title`, `description`, `phase` props; shows clock icon + description + phase badge. Used by existing pages that are not yet functional.
 
 **Sidebar sections:**
-1. Main nav (all users): Dashboard ⊞, Clients, Filing Status, Upload Sales Data, JSON Generator, Reminders, Inbox Monitor, Documents
+1. Main nav (all users): Dashboard ⊞, Clients, Filing Status, Upload Sales Data, JSON Generator, Reminders, Inbox Monitor, Reconciliation, Documents
 2. Admin only: Settings
+
+**InboxMonitor.tsx — Phase 1G addition:**
+- Added `dataType` column showing `GSTR1` (blue badge) or `PURCHASE` (purple badge) for each matched email
+- Help text updated to mention both `GSTR1-DATA | {GSTIN} | {MM-YYYY}` and `PURCHASE-DATA | {GSTIN} | {MM-YYYY}` subject formats
 
 **Pages showing Coming Soon (existing routes, not functional yet):**
 - `/documents` → ComingSoon — Documents page has no upload/download; backend S3 is stubbed. Original UI code preserved in Documents.tsx behind `COMING_SOON = true` flag.
@@ -354,3 +433,4 @@ const resolved = applyPlaceholders(body, { clientName, month, year, dueDate, con
 1. `20260220194015_add_reminder_templates` — adds `reminder_templates` table
 2. `20260220205222_update_automation_defaults` — sets `automation_enabled` and `notify_whatsapp` defaults to `true`
 3. `20260221_add_is_auto_to_reminders` — adds `is_auto` boolean column to `reminders` table
+4. `20260223000000_add_gstr2b_reconciliation` — adds `data_type` to `inbox_messages`; creates `purchase_data`, `purchase_validation_errors`, `gstr2b_entries`, `reconciliation_reports`, `gstr3b_summaries` tables

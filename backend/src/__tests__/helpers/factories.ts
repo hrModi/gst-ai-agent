@@ -186,3 +186,95 @@ export function mockReminderTemplate(overrides: Record<string, any> = {}) {
     ...overrides,
   }
 }
+
+export function mockPurchaseData(overrides: Record<string, any> = {}) {
+  return {
+    id: 'pd-001',
+    clientId: 'client-001',
+    month: 1,
+    year: 2026,
+    invoiceNumber: 'SUPP-001',
+    invoiceDate: '05-01-2026',
+    supplierGstin: '27AABCU9603R1ZX',
+    supplierName: 'ABC Suppliers Pvt Ltd',
+    invoiceValue: 23600,
+    taxableValue: 20000,
+    igstAmount: 0,
+    cgstAmount: 1800,
+    sgstAmount: 1800,
+    cessAmount: 0,
+    hsnCode: '9983',
+    validationStatus: 'VALID',
+    rowNumber: 1,
+    createdAt: new Date('2026-01-05'),
+    updatedAt: new Date('2026-01-05'),
+    ...overrides,
+  }
+}
+
+export function mockGstr2bEntry(overrides: Record<string, any> = {}) {
+  return {
+    id: 'g2b-001',
+    clientId: 'client-001',
+    month: 1,
+    year: 2026,
+    supplierGstin: '27AABCU9603R1ZX',
+    supplierName: 'ABC Suppliers Pvt Ltd',
+    invoiceNumber: 'SUPP-001',
+    invoiceDate: '05-01-2026',
+    invoiceValue: 23600,
+    taxableValue: 20000,
+    igstAmount: 0,
+    cgstAmount: 1800,
+    sgstAmount: 1800,
+    cessAmount: 0,
+    itcAvailable: 3600,
+    matchStatus: 'MATCHED',
+    createdAt: new Date('2026-01-05'),
+    ...overrides,
+  }
+}
+
+export function mockReconciliationReport(overrides: Record<string, any> = {}) {
+  return {
+    id: 'rr-001',
+    clientId: 'client-001',
+    month: 1,
+    year: 2026,
+    totalPurchase: 10,
+    totalGstr2b: 10,
+    matched: 8,
+    mismatched: 1,
+    missingInPurchase: 1,
+    extraInPurchase: 0,
+    totalItcAvailable: 28800,
+    totalItcMismatch: 3600,
+    generatedAt: new Date('2026-01-15'),
+    updatedAt: new Date('2026-01-15'),
+    ...overrides,
+  }
+}
+
+export function mockGstr3bSummary(overrides: Record<string, any> = {}) {
+  return {
+    id: 'g3b-001',
+    clientId: 'client-001',
+    month: 1,
+    year: 2026,
+    outwardTaxableValue: 100000,
+    outwardIgst: 0,
+    outwardCgst: 9000,
+    outwardSgst: 9000,
+    itcIgst: 0,
+    itcCgst: 1800,
+    itcSgst: 1800,
+    netIgst: 0,
+    netCgst: 7200,
+    netSgst: 7200,
+    classification: 'PAYMENT',
+    jsonGenerated: true,
+    generatedAt: new Date('2026-01-15'),
+    updatedAt: new Date('2026-01-15'),
+    ...overrides,
+  }
+}

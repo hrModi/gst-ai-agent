@@ -9,9 +9,10 @@ npm test              # Run all tests once
 npm run test:watch    # Watch mode
 npm run test:coverage # With coverage report
 ```
-- **148 tests** across 12 test suites
+- **200 tests** across 16 test suites
 - Tests run in-band (serially) via `--runInBand` for stability
 - Prisma, email, WhatsApp, storage, and scheduler are all mocked
+- Service-level imports (parsePurchaseFile, parseGstr2bFile, runReconciliation, generateGSTR3B, etc.) are mocked with `jest.mock()` in route tests
 
 ### Frontend (Vitest + React Testing Library)
 ```bash
@@ -88,6 +89,21 @@ The following test cases require visual/browser inspection and cannot be automat
 | 20.3 | Sidebar collapsed on mobile | Resize to <768px — verify sidebar collapses or shows hamburger menu |
 | 20.4 | Logout clears session and redirects to /login | Click logout in sidebar — verify token removed from localStorage and user lands on /login |
 
+### Group 21 — Reconciliation Page Visual / UX (Phase 1G+1H)
+
+| ID | Test Case | Steps |
+|----|-----------|-------|
+| 21.UI1 | 4 tabs render in correct order | Open `/reconciliation` → verify tabs: "Purchase Data", "GSTR-2B Upload", "Reconciliation", "GSTR-3B" appear in order |
+| 21.UI2 | Upload card shows drag-and-drop zone | On Purchase Data tab — verify dashed border upload zone is visible |
+| 21.UI3 | Polling spinner appears during validation | Upload a purchase file → verify spinner with "Validating..." appears within 1–2 seconds before results show |
+| 21.UI4 | Run Reconciliation button disabled without data | Open Reconciliation tab before uploading any data → verify button is disabled (grayed) |
+| 21.UI5 | Match status badge colors | After reconciliation, verify MATCHED=green, MISMATCHED=orange, MISSING IN PURCHASE=red, EXTRA IN PURCHASE=gray badges |
+| 21.UI6 | GSTR-3B tab blocked without reconciliation | Open GSTR-3B tab → verify "Generate GSTR-3B" button is disabled and explanatory text is shown |
+| 21.UI7 | Classification badge shows correct color | After GSTR-3B generation — NIL=gray, PAYMENT=red, CREDIT=green |
+| 21.UI8 | Download JSON button appears after generation | Click "Generate GSTR-3B" → verify "Download JSON" button appears and triggers file download |
+| 21.UI9 | GSTR-2B upload accepts .json extension | On GSTR-2B Upload tab — upload a `.json` file → verify it parses without format error |
+| 21.UI10 | Inbox Monitor shows PURCHASE badge | Send an email with `PURCHASE-DATA | {GSTIN} | 01-2026` subject → verify purple "PURCHASE" badge appears in Inbox Monitor table |
+
 ---
 
 ## Test Group Coverage Summary
@@ -114,3 +130,6 @@ The following test cases require visual/browser inspection and cannot be automat
 | 18 | Tenant provisioning script | ✅ Unit tests | — |
 | 19 | Documents coming-soon | ✅ Frontend | Icon rendering |
 | 20 | Navigation & routing | ✅ Frontend (routing) | Sidebar active state, mobile |
+| 21 | Purchase Data API + validator | ✅ Backend (15) + Service unit (14) | Reconciliation page UI, polling spinner |
+| 22 | GSTR-2B upload, reconciliation API | ✅ Backend (12) | GSTR-2B badge colors, matchStatus filter |
+| 23 | GSTR-3B computation API | ✅ Backend (11) | Classification badge, download UX |
